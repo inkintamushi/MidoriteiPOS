@@ -1,0 +1,63 @@
+/* ===== 卓選択 強化版 ===== */
+
+/* 表全体 */
+.table-area {
+  border-top: 1px solid #ccc;
+}
+
+/* 行 */
+.row {
+  display: grid;
+  grid-template-columns: 40px 80px 80px 60px 60px;
+  align-items: center;
+  border-bottom: 1px solid #ccc;
+  padding: 4px 0;
+}
+
+/* タイトル */
+.row.title {
+  font-weight: bold;
+  background: #f5f5f5;
+}
+
+/* === 状態バッジ === */
+.badge {
+  display: inline-block;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: white;
+  border-radius: 4px;
+  text-align: center;
+}
+
+/* 準備中（濃い緑） */
+.status-ready {
+  background: #0b5d1e;
+}
+
+/* 食事中（オレンジ） */
+.status-using {
+  background: #d56a00;
+}
+
+/* 空席（薄緑） */
+.status-empty {
+  background: #7ecb7e;
+  color: #fff;
+}
+
+/* 呼出中 */
+.status-call {
+  background: #0b5d1e;
+}
+
+/* === ボタン === */
+.table-btn {
+  background: #0b5d1e;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
