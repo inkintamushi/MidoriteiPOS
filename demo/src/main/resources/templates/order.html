@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>注文画面</title>
+
+<link rel="stylesheet" href="/css/common.css">
+
+<style>
+.category-bar {
+  display: flex;
+  justify-content: space-around;
+  background: #c96a00;
+  padding: 10px;
+}
+
+.tab {
+  background: #eee;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #003d00;
+  color: #fff;
+}
+
+.info-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.product-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  padding: 10px 10px 26px;
+  height: 350px;
+  box-sizing: border-box;
+  overflow-y: auto; /* 縦スクロールを有効化 */
+  border: 1px solid #ccc; /* スクロール領域を視覚的に分けるための枠線（任意） */
+}
+
+.card {
+  text-align: center;
+}
+
+.image {
+  height: 120px;
+  background: #999;
+  border-radius: 15px;
+}
+
+.order-btn {
+  margin-top: 10px;
+  padding: 8px 20px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.name {
+  margin-top: 5px;
+  background: #003d00;
+  color: #fff;
+  border-radius: 15px;
+  font-size: 12px;
+  padding: 5px;
+}
+
+.price {
+  margin-top: 5px;
+  color: #333;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.menu-bar {
+  position: absolute;
+  bottom: 120px;
+  width: 100%;
+  background: #90c978;
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+}
+
+.menu-btn {
+  cursor: pointer;
+}
+
+#total-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 168px;
+  z-index: 2;
+  padding: 10px 0;
+  background: #fff;
+  color: #003d00;
+  text-align: center;
+  font-weight: bold;
+  border-top: 1px solid #d8d8d8;
+  border-bottom: 1px solid #d8d8d8;
+}
+
+/* モーダル */
+.modal {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(255,255,255,0.2);
+  justify-content: center;
+  align-items: center;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-box {
+  width: 300px;
+  min-height: 500px;
+  box-sizing: border-box;
+  background: #fff;
+  border: 4px solid #777;
+  border-radius: 34px;
+  padding: 24px 24px 18px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.modal-title {
+  height: 58px;
+  line-height: 58px;
+  border: 3px solid #8a8a8a;
+  color: #555;
+  font-size: 18px;
+  font-weight: bold;
+  box-sizing: border-box;
+}
+
+.modal-image {
+  width: 160px;
+  height: 160px;
+  background: #888;
+  border-radius: 20px;
+  margin: 16px auto 28px;
+  overflow: hidden;
+}
+
+.modal-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-name {
+  min-height: 24px;
+  color: #555;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #555;
+  font-weight: bold;
+}
+
+#qty {
+  width: 38px;
+  height: 28px;
+  text-align: center;
+  border: 2px solid #d0d0d0;
+  box-sizing: border-box;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 88px;
+}
+
+.modal-buttons button {
+  width: 92px;
+  height: 38px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.complete-text {
+  color: #555;
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1.7;
+}
+
+.complete-ok {
+  width: 120px;
+  height: 40px;
+  margin-top: 34px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.payment-text {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: #555;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.7;
+}
+
+.payment-total {
+  font-size: 15px;
+}
+
+.staff-call-text,
+.history-text {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.staff-call-complete-text {
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: #555;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.staff-call-buttons,
+.history-buttons {
+  margin-top: 80px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="phone">
+
+<div class="header">みどり亭</div>
+
+<div class="category-bar">
+  <button class="tab active" data-filter="all">すべて</button>
+  <button class="tab" data-filter="yaki">焼き鳥</button>
+  <button class="tab" data-filter="alcohol">アルコール</button>
+  <button class="tab" data-filter="nomi">飲み放題</button>
+</div>
+
+<div class="info-bar">
+  <span>☑ 品切れを表示しない</span>
+  <span>残り時間：01:55</span>
+</div>
+
+<div class="product-list">
+
+  <div class="card" data-category="yaki" data-price="180">
+    <div class="image">
+      <img src="/images/product3.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">つくね</div>
+    <div class="price">180円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+  <div class="card" data-category="alcohol" data-price="550">
+    <div class="image">
+      <img src="/images/product2.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">酒井高徳</div>
+    <div class="price">550円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+  <div class="card" data-category="alcohol" data-price="320">
+    <div class="image">
+      <img src="/images/product5.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">ドリンクウォーター</div>
+    <div class="price">320円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+  <div class="card" data-category="yaki" data-price="450">
+    <div class="image">
+      <img src="/images/product7.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">いなり</div>
+    <div class="price">450円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+  <div class="card" data-category="alcohol" data-price="810">
+    <div class="image">
+      <img src="/images/product8.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">ビール</div>
+    <div class="price">810円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+  <div class="card" data-category="nomi" data-price="1980">
+    <div class="image">
+        <img src="/images/product6.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">飲み放題プラン</div>
+    <div class="price">1,980円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+  <div class="card" data-category="yaki" data-price="160">
+    <div class="image">
+        <img src="/images/product4.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
+    </div>
+    <div class="name">くにくにの鶏皮</div>
+    <div class="price">160円</div>
+    <button class="order-btn">注文</button>
+  </div>
+
+</div>
+
+<!-- カート -->
+<div id="cart-area"></div>
+<div id="total-area">合計：0円</div>
+
+<div class="menu-bar">
+  <span class="menu-btn" id="account">会計</span>
+  <span class="menu-btn" id="call">店員呼出</span>
+  <span class="menu-btn" id="history">履歴</span>
+</div>
+
+<div class="bottom"></div>
+<div class="home"></div>
+
+<!-- モーダル -->
+<div id="modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">注文</div>
+
+    <div class="modal-image">
+      <img id="modal-img" alt="">
+    </div>
+
+    <div id="modal-name" class="modal-name"></div>
+
+    <label class="qty-row">
+      個数:
+      <input id="qty" type="number" value="1" min="1">
+    </label>
+
+    <div class="modal-buttons">
+      <button id="no" type="button">No</button>
+      <button id="yes" type="button">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- 注文完了モーダル -->
+<div id="complete-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">注文</div>
+
+    <div class="modal-image">
+      <img id="complete-img" alt="">
+    </div>
+
+    <div class="complete-text">
+      <div id="complete-name"></div>
+      <div id="complete-qty"></div>
+      <div>注文<br>を完了いたしました。</div>
+    </div>
+
+    <button id="complete-ok" class="complete-ok" type="button">ok</button>
+  </div>
+</div>
+
+<!-- 会計確認モーダル -->
+<div id="payment-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">会計</div>
+
+    <div class="payment-text">
+      <div id="payment-total" class="payment-total">合計：0円</div>
+      <div>お会計してもよろしいでしょうか。</div>
+    </div>
+
+    <div class="modal-buttons">
+      <button id="payment-no" type="button">No</button>
+      <button id="payment-yes" type="button">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- 精算待機モーダル -->
+<div id="payment-complete-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">会計</div>
+
+    <div class="payment-text">
+      <div>会計をいたします。</div>
+      <div>レジにてお待ちください。</div>
+    </div>
+
+    <button id="payment-ok" class="complete-ok" type="button">ok</button>
+  </div>
+</div>
+
+<!-- 店員呼出確認モーダル -->
+<div id="staff-call-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">店員呼出</div>
+
+    <div class="staff-call-text">店員呼出いたします。</div>
+
+    <div class="modal-buttons staff-call-buttons">
+      <button id="staff-call-no" type="button">No</button>
+      <button id="staff-call-yes" type="button">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- 店員呼出待機モーダル -->
+<div id="staff-call-complete-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">店員呼出</div>
+
+    <div class="staff-call-complete-text">
+      <div>店員呼出中です。</div>
+      <div>少々、お待ちください。</div>
+    </div>
+
+    <button id="staff-call-ok" class="complete-ok" type="button">ok</button>
+  </div>
+</div>
+
+<!-- 履歴確認モーダル -->
+<div id="history-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">履歴</div>
+
+    <div class="history-text">注文履歴画面へ移動しますか。</div>
+
+    <div class="modal-buttons history-buttons">
+      <button id="history-no" type="button">No</button>
+      <button id="history-yes" type="button">Yes</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+
+// ✅ タブ切り替え（フィルター）
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", function() {
+
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    this.classList.add("active");
+
+    const filter = this.dataset.filter;
+
+    document.querySelectorAll(".card").forEach(card => {
+      if (filter === "all" || card.dataset.category === filter) {
+        card.style.display = "block";
+      } else {
+        card.style.display = "none";
+      }
+    });
+  });
+});
+
+// ✅ 注文モーダル
+const modal = document.getElementById("modal");
+const modalName = document.getElementById("modal-name");
+const modalImg = document.getElementById("modal-img");
+const qtyInput = document.getElementById("qty");
+const completeModal = document.getElementById("complete-modal");
+const completeImg = document.getElementById("complete-img");
+const completeName = document.getElementById("complete-name");
+const completeQty = document.getElementById("complete-qty");
+const paymentModal = document.getElementById("payment-modal");
+const paymentTotal = document.getElementById("payment-total");
+const paymentCompleteModal = document.getElementById("payment-complete-modal");
+const staffCallModal = document.getElementById("staff-call-modal");
+const staffCallCompleteModal = document.getElementById("staff-call-complete-modal");
+const historyModal = document.getElementById("history-modal");
+const totalArea = document.getElementById("total-area");
+let currentCard;
+let totalPrice = 0;
+let orderHistory = JSON.parse(localStorage.getItem("orderHistory") || "[]");
+
+document.querySelectorAll(".order-btn").forEach(btn => {
+  btn.onclick = function() {
+    const card = this.closest(".card");
+    const name = card.querySelector(".name").innerText;
+    const image = card.querySelector("img");
+
+    currentCard = card;
+    modalName.innerText = name;
+    modalImg.src = image.src;
+    modalImg.alt = name;
+    qtyInput.value = 1;
+    modal.classList.add("active");
+  };
+});
+
+document.getElementById("no").onclick = () => modal.classList.remove("active");
+
+document.getElementById("yes").onclick = () => {
+  const qty = parseInt(qtyInput.value, 10);
+
+  if (!Number.isInteger(qty) || qty < 1) {
+    qtyInput.value = 1;
+    return;
+  }
+
+  totalPrice += parseInt(currentCard.dataset.price, 10) * qty;
+  totalArea.innerText = `合計：${totalPrice.toLocaleString()}円`;
+
+  const itemName = modalName.innerText;
+  const itemPrice = parseInt(currentCard.dataset.price, 10);
+  const existingItem = orderHistory.find(item => item.name === itemName && item.price === itemPrice);
+
+  if (existingItem) {
+    existingItem.qty += qty;
+  } else {
+    orderHistory.push({
+      name: itemName,
+      qty: qty,
+      price: itemPrice
+    });
+  }
+
+  localStorage.setItem("orderHistory", JSON.stringify(orderHistory));
+
+  modal.classList.remove("active");
+  completeName.innerText = modalName.innerText;
+  completeQty.innerText = `個数：${qty}`;
+  completeImg.src = modalImg.src;
+  completeImg.alt = modalName.innerText;
+  completeModal.classList.add("active");
+};
+
+document.getElementById("complete-ok").onclick = () => {
+  completeModal.classList.remove("active");
+};
+
+// ✅ メニュー
+document.getElementById("account").onclick = () => {
+  paymentTotal.innerText = `合計：${totalPrice.toLocaleString()}円`;
+  paymentModal.classList.add("active");
+};
+
+document.getElementById("payment-no").onclick = () => {
+  paymentModal.classList.remove("active");
+};
+
+document.getElementById("payment-yes").onclick = () => {
+  paymentModal.classList.remove("active");
+  paymentCompleteModal.classList.add("active");
+};
+
+document.getElementById("payment-ok").onclick = () => {
+  paymentCompleteModal.classList.remove("active");
+};
+
+document.getElementById("call").onclick = () => {
+  staffCallModal.classList.add("active");
+};
+
+document.getElementById("staff-call-no").onclick = () => {
+  staffCallModal.classList.remove("active");
+};
+
+document.getElementById("staff-call-yes").onclick = () => {
+  staffCallModal.classList.remove("active");
+  staffCallCompleteModal.classList.add("active");
+};
+
+document.getElementById("staff-call-ok").onclick = () => {
+  staffCallCompleteModal.classList.remove("active");
+};
+
+document.getElementById("history").onclick = () => {
+  historyModal.classList.add("active");
+};
+
+document.getElementById("history-no").onclick = () => {
+  historyModal.classList.remove("active");
+};
+
+document.getElementById("history-yes").onclick = () => {
+  location.href = "/order_history";
+};
+
+</script>
+
+</body>
+</html>

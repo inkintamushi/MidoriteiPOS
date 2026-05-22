@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>卓ごとの注文履歴画面</title>
+
+<link rel="stylesheet" href="../../../../../css/test.css">
+</head>
+
+<body>
+
+<div class="page-label">卓ごとの注文履歴画面</div>
+
+<div class="phone">
+  <div class="header">みどり亭</div>
+
+  <div class="status-tabs">
+    <button class="tab-btn active" type="button" data-screen="table-select">卓選択</button>
+    <button class="tab-btn" type="button" data-screen="undelivered">未配膳</button>
+    <button class="tab-btn" type="button" data-screen="guide">案内</button>
+    <button class="tab-btn" type="button" data-screen="product-management">商品管理</button>
+  </div>
+
+  <div class="table-wrap">
+    <section class="screen active" id="table-select">
+      <div class="screen-title">卓選択</div>
+      <div class="table-select-grid">
+
+      </div>
+    </section>
+
+    <section class="screen" id="undelivered">
+      <div class="screen-title">未配膳</div>
+      <div class="screen-content">未配膳の商品を確認する画面です。</div>
+    </section>
+
+    <section class="screen" id="guide">
+      <div class="screen-title">案内</div>
+      <div class="screen-content">お客様を案内する画面です。</div>
+    </section>
+
+    <section class="screen" id="product-management">
+      <div class="screen-title">商品管理</div>
+      <div class="screen-content">商品の在庫や表示状態を管理する画面です。</div>
+    </section>
+
+  </div>
+
+  <div class="bottom"></div>
+  <div class="home"></div>
+</div>
+
+<script>
+const tabButtons = document.querySelectorAll(".tab-btn");
+const screens = document.querySelectorAll(".screen");
+
+tabButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    const targetScreen = button.dataset.screen;
+
+    tabButtons.forEach(tab => tab.classList.remove("active"));
+    screens.forEach(screen => screen.classList.remove("active"));
+
+    button.classList.add("active");
+    document.getElementById(targetScreen).classList.add("active");
+  });
+});
+</script>
+
+</body>
+</html>

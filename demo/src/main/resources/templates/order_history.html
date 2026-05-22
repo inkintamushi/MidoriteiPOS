@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>履歴画面</title>
+
+<link rel="stylesheet" href="/css/common.css">
+
+<style>
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 18px;
+  color: #333;
+}
+
+.history-table th,
+.history-table td {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid #d9d9d9;
+  box-sizing: border-box;
+}
+
+.history-table th {
+  font-weight: normal;
+  text-align: left;
+  background: #fff;
+}
+
+.history-table td:nth-child(2),
+.history-table td:nth-child(3) {
+  text-align: right;
+}
+
+.history-table td:nth-child(4) {
+  text-align: center;
+}
+
+.history-name {
+  width: 40%;
+}
+
+.history-qty {
+  width: 18%;
+}
+
+.history-price {
+  width: 24%;
+}
+
+.history-cancel {
+  width: 18%;
+}
+
+.cancel-btn {
+  width: 54px;
+  height: 24px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.history-empty {
+  padding-top: 70px;
+  text-align: center;
+  color: #555;
+  font-size: 18px;
+}
+
+.order-nav {
+  position: absolute;
+  bottom: 120px;
+  left: 0;
+  width: 100%;
+  height: 46px;
+  background: #90c978;
+  color: #fff;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="phone">
+
+<div class="header">みどり亭</div>
+
+<table class="history-table">
+  <thead>
+    <tr>
+      <th class="history-name">商品名</th>
+      <th class="history-qty">個数</th>
+      <th class="history-price">値段</th>
+      <th class="history-cancel">取消</th>
+    </tr>
+  </thead>
+  <tbody id="history-body"></tbody>
+</table>
+
+<div id="history-empty" class="history-empty">注文履歴はありません。</div>
+
+<button id="order-nav" class="order-nav" type="button">注文</button>
+
+<div class="bottom"></div>
+<div class="home"></div>
+
+</div>
+
+<script>
+const historyBody = document.getElementById("history-body");
+const historyEmpty = document.getElementById("history-empty");
+let orderHistory = JSON.parse(localStorage.getItem("orderHistory") || "[]");
+
+function updateEmptyMessage() {
+  historyEmpty.style.display = orderHistory.length ? "none" : "block";
+}
+
+function saveHistory() {
+  localStorage.setItem("orderHistory", JSON.stringify(orderHistory));
+}
+
+function renderHistory() {
+  historyBody.innerHTML = "";
+  updateEmptyMessage();
+
+  orderHistory.forEach((item, index) => {
+    const row = document.createElement("tr");
+    const nameCell = document.createElement("td");
+    const qtyCell = document.createElement("td");
+    const priceCell = document.createElement("td");
+    const cancelCell = document.createElement("td");
+    const cancelButton = document.createElement("button");
+
+    nameCell.textContent = item.name;
+    qtyCell.textContent = item.qty;
+    priceCell.textContent = Number(item.price).toLocaleString();
+    cancelButton.textContent = "取消";
+    cancelButton.type = "button";
+    cancelButton.className = "cancel-btn";
+    cancelButton.onclick = () => {
+      orderHistory.splice(index, 1);
+      saveHistory();
+      renderHistory();
+    };
+
+    cancelCell.appendChild(cancelButton);
+    row.append(nameCell, qtyCell, priceCell, cancelCell);
+    historyBody.appendChild(row);
+  });
+}
+
+renderHistory();
+
+document.getElementById("order-nav").onclick = () => {
+  location.href = "/order";
+};
+</script>
+
+</body>
+</html>
