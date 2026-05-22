@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>nav入りデフォルト画面</title>
+
+<style>
+body {
+  margin: 0;
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+/* スマホ本体 */
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ヘッダー */
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* タブ */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+}
+
+.tab:last-child {
+  border-right: none;
+}
+
+/* 卓選択エリア */
+.table-area {
+  padding: 20px;
+  font-size: 14px;
+}
+
+.table-area .row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 10px 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.table-area .row.title {
+  font-weight: bold;
+  background: #f0f0f0;
+}
+
+.table-area .badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.status-ready {
+  background: #ffcc00;
+  color: #000;
+}
+
+.status-using {
+  background: #00cc66;
+  color: #fff;
+}
+
+.status-call {
+  background: #ff4444;
+  color: #fff;
+}
+
+.status-empty {
+  background: #cccccc;
+  color: #000;
+}
+
+.table-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.table-btn:hover {
+  background: #0056b3;
+}
+
+/* 下の黒いエリア */
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+}
+
+/* ホームボタン */
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+</style>
+
+</head>
+<body>
+
+<div class="phone">
+
+  <div class="header">みどり亭</div>
+
+  <!-- タブ -->
+  <div class="tabs">
+    <div class="tab">卓選択</div>
+    <div class="tab">未配膳</div>
+    <div class="tab">案内</div>
+    <div class="tab">商品管理</div>
+  </div>
+
+  <!-- 卓選択エリア -->
+  <div class="table-area">
+    <div class="row title">
+      <span>卓番号</span>
+      <span>空席状況</span>
+      <span>呼出状況</span>
+      <span>注文</span>
+      <span>注文履歴</span>
+    </div>
+
+    <div class="row">
+      <span>1</span>
+      <span><span class="badge status-ready">準備中</span></span>
+      <span>－</span>
+      <span>－</span>
+      <span>－</span>
+    </div>
+
+    <div class="row">
+      <span>2</span>
+      <span><span class="badge status-using">食事中</span></span>
+      <span><span class="badge status-call">呼出中</span></span>
+      <span><button class="table-btn">注文</button></span>
+      <span><button class="table-btn">履歴</button></span>
+    </div>
+
+    <div class="row">
+      <span>3</span>
+      <span><span class="badge status-using">食事中</span></span>
+      <span><span class="badge status-call">呼出中</span></span>
+      <span><button class="table-btn">注文</button></span>
+      <span><button class="table-btn">履歴</button></span>
+    </div>
+
+    <div class="row">
+      <span>4</span>
+      <span><span class="badge status-empty">空席</span></span>
+      <span>なし</span>
+      <span>－</span>
+      <span>－</span>
+    </div>
+
+    <div class="row">
+      <span>5</span>
+      <span><span class="badge status-empty">空席</span></span>
+      <span>なし</span>
+      <span>－</span>
+      <span>－</span>
+    </div>
+
+    <div class="row">
+      <span>6</span>
+      <span><span class="badge status-using">食事中</span></span>
+      <span>呼出なし</span>
+      <span>－</span>
+      <span>－</span>
+    </div>
+  </div>
+
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+</div>
+
+</body>
+</html>
