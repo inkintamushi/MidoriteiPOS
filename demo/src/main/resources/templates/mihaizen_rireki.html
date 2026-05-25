@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>未配膳注文履歴 - みどり亭</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+/* ===== スマホ枠（default_nav.html 共通） ===== */
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== ヘッダー（共通） ===== */
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* ===== タブ（共通） ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab:last-child { border-right: none; }
+.tab.active-tab {
+  background: #003d00;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* ===== 下の黒いエリア（共通） ===== */
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+}
+
+/* ===== ホームボタン（共通） ===== */
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+
+/* ===== コンテンツエリア ===== */
+.content-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 12px;
+  scrollbar-gutter: stable;
+}
+
+/* ===== テーブル ===== */
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* ヘッダー行 */
+.list-table thead tr {
+  background: #fff;
+  border-bottom: 2px solid #555;
+}
+.list-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 4px;
+  font-weight: bold;
+  text-align: center;
+  color: #222;
+  background: #fff;
+  white-space: nowrap;
+}
+.list-table thead th:first-child { padding-left: 10px; }
+
+/* データ行 */
+.list-table tbody tr {
+  border-bottom: 1px solid #ccc;
+  transition: background .15s;
+}
+.list-table tbody tr:hover { background: #f5f5f5; }
+
+/* 配膳済み行 */
+.list-table tbody tr.delivered {
+  background: #e0e0e0;
+  color: #888;
+}
+.list-table tbody tr.delivered .deliver-btn {
+  background: #aaa;
+  cursor: default;
+}
+
+.list-table tbody td {
+  padding: 9px 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+.list-table tbody td:first-child { padding-left: 10px; text-align: left; }
+.list-table tbody td:nth-child(2) { text-align: left; }
+
+/* 配膳完了ボタン */
+.deliver-btn {
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.deliver-btn:active { opacity: .75; }
+
+/* ===== オーバーレイ ===== */
+.overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.18);
+  z-index: 20;
+}
+.overlay.active { display: block; }
+
+/* ===== モーダルカード共通 ===== */
+.modal-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 28px 22px;
+  text-align: center;
+}
+
+/* タイトル枠 */
+.modal-title {
+  border: 2px solid #000;
+  padding: 13px 10px;
+  font-size: 19px;
+  margin-bottom: 30px;
+  border-radius: 4px;
+}
+
+/* 本文 */
+.modal-body {
+  font-size: 15px;
+  line-height: 2.5;
+  text-align: left;
+  padding: 0 16px;
+}
+.modal-body p { text-align: left; }
+
+/* 個数入力 */
+.qty-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.qty-input {
+  width: 55px;
+  height: 30px;
+  border: 1px solid #999;
+  text-align: center;
+  font-size: 15px;
+}
+
+/* No / Yes ボタン */
+.modal-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 36px;
+}
+.modal-btn {
+  background: #003d00;
+  color: #fff;
+  border: none;
+  padding: 11px 34px;
+  border-radius: 15px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.modal-btn:active { opacity: .75; }
+
+/* ok ボタン */
+.ok-btn {
+  display: block;
+  margin: 32px auto 0;
+  padding: 11px 44px;
+  font-size: 18px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+}
+.ok-btn:active { opacity: .75; }
+
+/* 完了テキスト */
+.done-sub {
+  margin-top: 18px;
+  line-height: 2;
+  font-size: 15px;
+  text-align: center;
+  color: #222;
+}
+</style>
+</head>
+
+<body>
+<div class="phone">
+
+  <!-- ===== 共通ヘッダー（default_nav.html） ===== -->
+  <div class="header">みどり亭</div>
+
+  <!-- ===== 共通タブ（default_nav.html） ===== -->
+  <div class="tabs">
+    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
+    <div class="tab active-tab">未配膳</div>
+    <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
+    <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
+  </div>
+
+  <!-- ============================================================
+       未配膳注文履歴画面
+  ============================================================ -->
+  <div class="content-area">
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th>卓番号</th>
+          <th>商品名</th>
+          <th>個数</th>
+          <th>配膳完了</th>
+        </tr>
+      </thead>
+      <tbody id="order-list">
+        <!-- JSで生成 -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================
+       オーバーレイ1: 配膳確定モーダル
+  ============================================================ -->
+  <div id="overlay-confirm" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">配膳確定</div>
+      <div class="modal-body">
+        <p id="confirm-table"></p>
+        <p id="confirm-item"></p>
+        <div class="qty-row">
+          <span>個数：</span>
+          <input type="number" id="confirm-qty" class="qty-input" value="1" min="1">
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-btn" onclick="closeConfirm()">No</button>
+        <button class="modal-btn" onclick="executeDeliver()">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       オーバーレイ2: 配膳確定完了モーダル
+  ============================================================ -->
+  <div id="overlay-done" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">配膳確定完了</div>
+      <div class="modal-body">
+        <p id="done-table"></p>
+        <p id="done-item"></p>
+        <p id="done-qty"></p>
+      </div>
+      <div class="done-sub">
+        配膳確定<br>を完了いたしました。
+      </div>
+      <button class="ok-btn" onclick="finishDeliver()">ok</button>
+    </div>
+  </div>
+
+  <!-- ===== 共通フッター（default_nav.html） ===== -->
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+</div>
+
+<script>
+/* ========================================
+   注文データ
+======================================== */
+const orders = [
+  { id: 1, table: 2, item: 'ビール',    qty: 1, delivered: false },
+  { id: 2, table: 4, item: 'モモ（タレ）', qty: 2, delivered: false },
+  { id: 3, table: 4, item: 'モモ（塩）', qty: 1, delivered: false },
+  { id: 4, table: 5, item: 'サンカク',   qty: 2, delivered: false },
+  { id: 5, table: 6, item: '梅酒',      qty: 1, delivered: false },
+  { id: 6, table: 9, item: 'レモンハイ', qty: 1, delivered: false },
+  { id: 7, table: 1, item: 'ビール',    qty: 2, delivered: false },
+  { id: 8, table: 1, item: 'ビール',    qty: 4, delivered: false },
+  { id: 9, table: 1, item: 'モモ（塩）', qty: 1, delivered: false },
+  { id:10, table: 1, item: 'ビール',    qty: 1, delivered: false },
+  { id:11, table: 4, item: '砂肝',      qty: 1, delivered: false },
+];
+
+let currentOrderId = null;
+
+/* ========================================
+   テーブル描画
+======================================== */
+function renderList() {
+  const tbody = document.getElementById('order-list');
+  tbody.innerHTML = '';
+
+  orders.forEach(o => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${o.table}</td>
+      <td>${o.item}</td>
+      <td>${o.qty}</td>
+      <td>
+        <button class="deliver-btn" onclick="openConfirm(${o.id})">配膳</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ========================================
+   配膳確定モーダルを開く
+======================================== */
+function openConfirm(id) {
+  currentOrderId = id;
+  const o = orders.find(x => x.id === id);
+  document.getElementById('confirm-table').textContent = '卓番号：' + o.table;
+  document.getElementById('confirm-item').textContent  = '商品名：' + o.item;
+  const qtyInput = document.getElementById('confirm-qty');
+  qtyInput.value = o.qty;
+  qtyInput.max   = o.qty;   // 元の個数より多く入力不可
+  showOverlay('overlay-confirm');
+}
+
+function closeConfirm() {
+  closeAllOverlays();
+  currentOrderId = null;
+}
+
+/* ========================================
+   配膳実行 → 完了モーダルへ
+======================================== */
+function executeDeliver() {
+  const o   = orders.find(x => x.id === currentOrderId);
+  const qty = document.getElementById('confirm-qty').value;
+
+  document.getElementById('done-table').textContent = '卓番号：' + o.table;
+  document.getElementById('done-item').textContent  = '商品名：' + o.item;
+  document.getElementById('done-qty').textContent   = '個数：' + qty;
+
+  showOverlay('overlay-done');
+}
+
+/* ========================================
+   完了 → 行を配膳済みに更新して一覧へ
+======================================== */
+function finishDeliver() {
+  if (currentOrderId !== null) {
+    const idx      = orders.findIndex(x => x.id === currentOrderId);
+    const o        = orders[idx];
+    const delivered = parseInt(document.getElementById('done-qty').textContent.replace('個数：', ''), 10);
+
+    if (delivered >= o.qty) {
+      // 全数配膳 → リストから削除
+      orders.splice(idx, 1);
+    } else {
+      // 一部配膳 → 残数に更新
+      o.qty -= delivered;
+    }
+    currentOrderId = null;
+  }
+  closeAllOverlays();
+  renderList();
+}
+
+/* ========================================
+   オーバーレイ制御
+======================================== */
+function showOverlay(id) {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function closeAllOverlays() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+}
+
+/* ========================================
+   初期描画
+======================================== */
+renderList();
+</script>
+
+</body>
+</html>

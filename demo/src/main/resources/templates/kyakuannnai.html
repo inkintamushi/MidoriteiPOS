@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>客案内 - みどり亭</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+/* ===== スマホ枠（default_nav.html 共通） ===== */
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== ヘッダー（共通） ===== */
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* ===== タブ（共通） ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+}
+.tab:last-child { border-right: none; }
+.tab.active-tab { background: #003d00; color: #fff; font-weight: bold; }
+
+/* ===== 下の黒いエリア（共通） ===== */
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+}
+
+/* ===== ホームボタン（共通） ===== */
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+
+/* ===== 画面切替 ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ===== コンテンツエリア ===== */
+.content-area {
+  height: calc(820px - 116px - 46px - 120px);
+  overflow-y: auto;
+  padding: 0;
+  position: relative;
+}
+
+/* ===================================================
+   共通カードレイアウト（中央カード型画面）
+=================================================== */
+.card-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 16px;
+}
+
+.card-box {
+  width: 310px;
+  border: 2px solid #000;
+  border-radius: 20px;
+  padding: 20px 18px;
+  background: #fff;
+  position: relative;
+}
+
+.card-title {
+  border: 2px solid #000;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 17px;
+  padding: 11px 0;
+  margin-bottom: 18px;
+}
+
+/* ===================================================
+   客案内選択画面
+=================================================== */
+.annai-center-text {
+  text-align: center;
+  font-size: 14px;
+  color: #333;
+  line-height: 2;
+  margin: 30px 0 40px;
+}
+
+.annai-btns {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.annai-row {
+  display: flex;
+  gap: 12px;
+}
+
+.green-btn {
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 22px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.green-btn:active { opacity: .75; }
+
+.green-btn.back {
+  padding: 10px 36px;
+}
+
+/* ===================================================
+   案内入力画面（卓選択テーブル）
+=================================================== */
+.annai-input-wrap {
+  padding: 10px 14px 0;
+}
+
+.taku-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.taku-table th {
+  background: #eee;
+  border: 1px solid #ccc;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 12px;
+}
+.taku-table td {
+  border: 1px solid #ccc;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: bold;
+  margin: 10px 0 6px;
+  text-align: center;
+}
+
+.plan-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 4px 8px;
+  font-size: 13px;
+}
+
+.ninzu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 8px 14px;
+  font-size: 13px;
+}
+.ninzu-row input {
+  width: 70px;
+  height: 28px;
+  border: 1px solid #999;
+  padding: 4px;
+  text-align: center;
+}
+
+.input-btns {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 6px;
+  padding-bottom: 10px;
+}
+
+/* ===================================================
+   案内完了モーダル（カード）
+=================================================== */
+.done-body {
+  font-size: 14px;
+  line-height: 2.4;
+  text-align: left;
+  padding: 0 8px;
+  margin-bottom: 12px;
+}
+.done-body p { text-align: left; }
+
+.done-sub {
+  text-align: center;
+  font-size: 14px;
+  line-height: 2;
+  margin: 10px 0 16px;
+}
+
+.done-btns {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 10px;
+}
+
+/* ===================================================
+   QRコード表示画面
+=================================================== */
+.qr-screen-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 0;
+}
+
+.qr-card {
+  width: 310px;
+  border: 2px solid #000;
+  border-radius: 16px;
+  padding: 18px 16px;
+  background: #fff;
+}
+
+.qr-id-row {
+  font-size: 13px;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+.qr-box {
+  width: 200px;
+  height: 160px;
+  background: #888;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  border-radius: 6px;
+  margin: 0 auto 12px;
+}
+
+.barcode-btn {
+  display: block;
+  width: 200px;
+  margin: 0 auto 16px;
+  padding: 9px 0;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.print-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.print-row input {
+  width: 50px;
+  height: 28px;
+  border: 1px solid #999;
+  text-align: center;
+  font-size: 14px;
+}
+.print-btn {
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 20px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ===================================================
+   席移動選択画面
+=================================================== */
+.idou-center-text {
+  text-align: center;
+  font-size: 14px;
+  color: #333;
+  line-height: 2;
+  margin: 30px 0 36px;
+}
+
+.idou-action-btns {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* ===================================================
+   卓移動 / 卓交換 入力画面
+=================================================== */
+.idou-form {
+  font-size: 14px;
+  line-height: 2.6;
+  padding: 0 8px;
+  margin-bottom: 16px;
+}
+.idou-form .form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.idou-form select {
+  height: 30px;
+  border: 1px solid #999;
+  padding: 2px 6px;
+  font-size: 13px;
+  width: 90px;
+}
+
+/* ===================================================
+   完了カード共通
+=================================================== */
+.kanryo-body {
+  font-size: 14px;
+  line-height: 2.4;
+  text-align: left;
+  padding: 0 8px;
+}
+.kanryo-sub {
+  text-align: center;
+  font-size: 14px;
+  line-height: 2;
+  margin: 10px 0 16px;
+}
+.ok-btn {
+  display: block;
+  margin: 8px auto 0;
+  padding: 10px 44px;
+  font-size: 16px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.ok-btn:active { opacity: .75; }
+</style>
+</head>
+
+<body>
+<div class="phone">
+
+  <!-- ===== 共通ヘッダー ===== -->
+  <div class="header">みどり亭</div>
+
+  <!-- ===== 共通タブ ===== -->
+  <div class="tabs">
+    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab active-tab">案内</div>
+    <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
+  </div>
+
+  <!-- ===========================================================
+       画面1: 客案内選択
+  =========================================================== -->
+  <div id="s-top" class="screen active">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">客案内選択</div>
+          <div class="annai-center-text">
+            行う客案内<br>を選択してください。
+          </div>
+          <div class="annai-btns">
+            <div class="annai-row">
+              <button class="green-btn" onclick="showScreen('s-annai-input')">新規案内</button>
+              <button class="green-btn" onclick="showScreen('s-idou-select')">座席移動</button>
+            </div>
+            <button class="green-btn back" onclick="location.href='taku.html'">戻る</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面2: 案内入力（卓選択・飲み放題・人数）
+  =========================================================== -->
+  <div id="s-annai-input" class="screen">
+    <div class="content-area">
+      <div class="annai-input-wrap">
+
+        <!-- 卓テーブル -->
+        <table class="taku-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>卓番号</th>
+              <th>空席状況</th>
+              <th>案内</th>
+              <th>飲み放題</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><input type="checkbox" name="taku" value="1"></td><td>1</td><td>空席</td><td></td><td></td></tr>
+            <tr><td><input type="checkbox" name="taku" value="3"></td><td>3</td><td>空席</td><td></td><td></td></tr>
+            <tr><td><input type="checkbox" name="taku" value="5"></td><td>5</td><td>空席</td><td></td><td></td></tr>
+            <tr><td><input type="checkbox" name="taku" value="7"></td><td>7</td><td>空席</td><td></td><td></td></tr>
+            <tr><td><input type="checkbox" name="taku" value="9"></td><td>9</td><td>空席</td><td></td><td></td></tr>
+          </tbody>
+        </table>
+
+        <!-- 飲み放題プラン -->
+        <div class="section-title">飲み放題プラン</div>
+        <div class="plan-row">
+          <span>ノーマル</span>
+          <input type="radio" name="plan" value="ノーマル" onclick="toggleRadio(this)">
+        </div>
+        <div class="plan-row">
+          <span>プレミアム</span>
+          <input type="radio" name="plan" value="プレミアム" onclick="toggleRadio(this)">
+        </div>
+
+        <!-- 人数 -->
+        <div class="ninzu-row">
+          <span>人数：</span>
+          <input type="number" id="ninzu" min="1" value="">
+        </div>
+
+        <div class="input-btns">
+          <button class="green-btn" onclick="showScreen('s-annai-input')">No</button>
+          <button class="green-btn" onclick="execAnnai()">Yes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面3: 案内完了モーダル
+  =========================================================== -->
+  <div id="s-annai-done" class="screen">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">客案内</div>
+          <div class="done-body">
+            <p id="done-taku">卓番号：1</p>
+            <p id="done-plan">飲み放題：プレミアムプラン</p>
+            <p id="done-ninzu">人数：2</p>
+          </div>
+          <div class="done-sub">
+            客案内<br>を完了いたしました。
+          </div>
+          <div class="done-btns">
+            <button class="green-btn" onclick="showScreen('s-annai-input')">No</button>
+            <button class="green-btn" onclick="showScreen('s-qr')">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面4: QRコード表示
+  =========================================================== -->
+  <div id="s-qr" class="screen">
+    <div class="content-area">
+      <div class="qr-screen-wrap">
+        <div class="qr-card">
+          <div class="qr-id-row">顧客ID ●●●●●●●●●●</div>
+          <div class="qr-box">QRコード表示</div>
+          <button class="barcode-btn">一次元バーコード</button>
+          <div class="print-row">
+            <input type="number" value="4" min="1">
+            <button class="print-btn" onclick="showScreen('s-top')">印刷</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面5: 席移動選択（卓移動 or 卓交換）
+  =========================================================== -->
+  <div id="s-idou-select" class="screen">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">座席移動選択</div>
+          <div class="idou-center-text">
+            行う座席移動<br>を選択してください。
+          </div>
+          <div class="idou-action-btns">
+            <button class="green-btn" onclick="showScreen('s-idou-input')">卓移動</button>
+            <button class="green-btn" onclick="showScreen('s-koukan-input')">卓交換</button>
+          </div>
+          <div style="text-align:center; margin-top:8px;">
+            <button class="green-btn back" onclick="showScreen('s-top')">戻る</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面6: 卓移動入力
+  =========================================================== -->
+  <div id="s-idou-input" class="screen">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">卓移動</div>
+          <div class="idou-form">
+            <div class="form-row">
+              <span>移動する卓番号</span>
+              <select id="idou-from">
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <span>移動先の卓番号</span>
+              <select id="idou-to">
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option>
+              </select>
+            </div>
+          </div>
+          <div class="done-btns">
+            <button class="green-btn" onclick="showScreen('s-idou-select')">No</button>
+            <button class="green-btn" onclick="execIdou()">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面7: 卓移動完了
+  =========================================================== -->
+  <div id="s-idou-done" class="screen">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">卓移動完了</div>
+          <div class="kanryo-body">
+            <p id="idou-done-from">移動する卓番号：2</p>
+            <p id="idou-done-to">移動先の卓番号：1</p>
+          </div>
+          <div class="kanryo-sub">
+            卓移動<br>を完了いたしました。
+          </div>
+          <button class="ok-btn" onclick="showScreen('s-top')">Ok</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面8: 卓交換入力
+  =========================================================== -->
+  <div id="s-koukan-input" class="screen">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">卓交換</div>
+          <div class="idou-form">
+            <div class="form-row">
+              <span>交換する卓番号</span>
+              <select id="koukan-a">
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <span>交換する卓番号</span>
+              <select id="koukan-b">
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option>
+              </select>
+            </div>
+          </div>
+          <div class="done-btns">
+            <button class="green-btn" onclick="showScreen('s-idou-select')">No</button>
+            <button class="green-btn" onclick="execKoukan()">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================
+       画面9: 卓交換完了
+  =========================================================== -->
+  <div id="s-koukan-done" class="screen">
+    <div class="content-area">
+      <div class="card-screen">
+        <div class="card-box">
+          <div class="card-title">卓交換完了</div>
+          <div class="kanryo-body">
+            <p id="koukan-done-a">交換する卓番号：2</p>
+            <p id="koukan-done-b">交換する卓番号：1</p>
+          </div>
+          <div class="kanryo-sub">
+            卓交換<br>を完了いたしました。
+          </div>
+          <button class="ok-btn" onclick="showScreen('s-top')">Ok</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 共通フッター ===== -->
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+</div>
+
+<script>
+/* ========================================
+   ラジオボタン再クリック解除
+======================================== */
+// mousedown時点でチェック済みかを記録
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('input[name="plan"]').forEach(function(radio) {
+    radio.addEventListener('mousedown', function() {
+      this._wasChecked = this.checked;
+    });
+  });
+});
+
+function toggleRadio(radio) {
+  if (radio._wasChecked) {
+    radio.checked = false;
+  }
+}
+
+/* ========================================
+   画面切替
+======================================== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ========================================
+   新規案内確定
+======================================== */
+function execAnnai() {
+  // 選択卓
+  const checked = [...document.querySelectorAll('input[name="taku"]:checked')]
+                    .map(c => c.value);
+  const takuStr = checked.length ? checked.join('、') : '（未選択）';
+
+  // 飲み放題プラン
+  const planEl = document.querySelector('input[name="plan"]:checked');
+  const plan   = planEl ? planEl.value + 'プラン' : '（未選択）';
+
+  // 人数
+  const ninzu = document.getElementById('ninzu').value || '（未入力）';
+
+  document.getElementById('done-taku').textContent  = '卓番号：'    + takuStr;
+  document.getElementById('done-plan').textContent  = '飲み放題：'  + plan;
+  document.getElementById('done-ninzu').textContent = '人数：'      + ninzu;
+
+  showScreen('s-annai-done');
+}
+
+/* ========================================
+   卓移動確定
+======================================== */
+function execIdou() {
+  const from = document.getElementById('idou-from').value;
+  const to   = document.getElementById('idou-to').value;
+
+  document.getElementById('idou-done-from').textContent = '移動する卓番号：' + from;
+  document.getElementById('idou-done-to').textContent   = '移動先の卓番号：' + to;
+
+  showScreen('s-idou-done');
+}
+
+/* ========================================
+   卓交換確定
+======================================== */
+function execKoukan() {
+  const a = document.getElementById('koukan-a').value;
+  const b = document.getElementById('koukan-b').value;
+
+  document.getElementById('koukan-done-a').textContent = '交換する卓番号：' + a;
+  document.getElementById('koukan-done-b').textContent = '交換する卓番号：' + b;
+
+  showScreen('s-koukan-done');
+}
+</script>
+
+</body>
+</html>

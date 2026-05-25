@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログイン画面</title>
+  <style>
+    body {
+      margin: 0;
+      background: #dcdcdc;
+      font-family: sans-serif;
+    }
+
+    /* スマホ本体 */
+    .phone {
+      width: 380px;
+      height: 820px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 50px;
+      border: 5px solid #000;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ヘッダー */
+    .header {
+      background: #003d00;
+      color: #fff;
+      text-align: center;
+      font-size: 36px;
+      padding: 40px 0;
+
+      /* 上だけ丸い */
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+
+      /* 下は真っ直ぐ */
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    /* フォーム */
+    .content {
+      padding: 40px 24px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      height: 40px;
+      margin-bottom: 24px;
+      border: 2px solid #000;
+      font-size: 16px;
+      padding: 4px 8px;
+      box-sizing: border-box;
+    }
+
+    .login-btn {
+      display: block;
+      margin: 40px auto 0;
+      padding: 10px 32px;
+      background: #003d00;
+      color: #fff;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* 下の黒いエリア */
+    .bottom {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 120px;
+      background: #000;
+      border-bottom-left-radius: 44px;
+      border-bottom-right-radius: 44px;
+    }
+
+
+  
+    /* ホームボタン */
+    .home {
+      position: absolute;
+      bottom: 35px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 60px;
+      border: 4px solid #fff;
+      border-radius: 50%;
+    }
+
+    /* エラーダイアログ */
+    .modal {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .modal-box {
+      width: 280px;
+      background: #fff;
+      border: 3px solid #000;
+      border-radius: 30px;
+      margin: 160px auto;
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    .modal-title {
+      border: 2px solid #000;
+      padding: 6px;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    .modal-text {
+      font-size: 14px;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .ok-btn {
+      background: #003d00;
+      color: #fff;
+      border: none;
+      padding: 8px 32px;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  
+<div class="demo-info">
+  <p>🔑 デモ用ログイン情報</p>
+  <p>ID：<span>staff</span>　パスワード：<span>1234</span></p>
+</div>
+
+<div class="phone">
+  <div class="header">みどり亭</div>
+
+  <div class="content">
+    <label>店員ID</label>
+    <input type="text">
+
+    <label>パスワード</label>
+    <input type="password">
+
+    <button class="login-btn" onclick="tryLogin()">ログイン</button>
+  </div>
+
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+  <!-- エラーモーダル -->
+  <div class="modal" id="errorModal">
+    <div class="modal-box">
+      <div class="modal-title">ログインエラー</div>
+      <div class="modal-text">
+        ログインに失敗しました。<br>
+        店員ID、パスワード<br>
+        が違います。
+      </div>
+      <button class="ok-btn" onclick="hideError()">ok</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function tryLogin() {
+    const id = document.querySelectorAll('input')[0].value;
+    const pw = document.querySelectorAll('input')[1].value;
+    // 店員ID: staff / パスワード: 1234 で成功（デモ用）
+    if (id === 'staff' && pw === '1234') {
+      window.location.href = 'taku.html';
+    } else {
+      document.getElementById('errorModal').style.display = 'block';
+    }
+  }
+  function showError() {
+    document.getElementById('errorModal').style.display = 'block';
+  }
+  function hideError() {
+    document.getElementById('errorModal').style.display = 'none';
+  }
+</script>
+
+</body>
+</html>

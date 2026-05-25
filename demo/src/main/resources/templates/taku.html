@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>みどり亭</title>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+/* ===== スマホ枠（default_nav.html 共通） ===== */
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== ヘッダー（default_nav.html 共通） ===== */
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* ===== タブ（default_nav.html 共通） ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tab:last-child {
+  border-right: none;
+}
+
+.tab.active-tab {
+  background: #003d00;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* ===== コンテンツエリア ===== */
+/* header(116px) + tabs(~46px) + bottom(120px) */
+.content-area {
+  height: calc(820px - 116px - 46px - 120px);
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* ===== 画面切替 ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ===== テーブル ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+}
+
+th {
+  background: #eee;
+}
+
+/* ===== ボタン ===== */
+.btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.green  { background: #1b5e20; }
+.orange { background: #ef6c00; }
+.light  { background: #8bc34a; }
+.gray   { background: #777; }
+
+/* ===== 下の黒いエリア（default_nav.html 共通） ===== */
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+}
+
+/* ===== ホームボタン（default_nav.html 共通） ===== */
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+</style>
+
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- ===== 共通ヘッダー ===== -->
+  <div class="header">みどり亭</div>
+
+  <!-- ===== 共通タブ ===== -->
+  <div class="tabs">
+    <div class="tab active-tab">卓選択</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
+    <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
+  </div>
+
+  <!-- ============================================================
+       画面1: 卓選択
+  ============================================================ -->
+  <div id="screen-table" class="screen active">
+    <div class="content-area">
+      <table>
+        <tr>
+          <th>卓番号</th>
+          <th>空席状況</th>
+          <th>呼出状況</th>
+          <th>注文</th>
+          <th>履歴</th>
+        </tr>
+        <tr>
+          <td>1</td><td>食事中</td>
+          <td><button class="btn green"  onclick="callTable(1)">対応中</button></td>
+          <td><button class="btn green"  onclick="orderTable(1)">注文</button></td>
+          <td><button class="btn green"  onclick="historyTable(1)">履歴</button></td>
+        </tr>
+        <tr>
+          <td>2</td><td>食事中</td>
+          <td><button class="btn orange" onclick="callTable(2)">要対応</button></td>
+          <td><button class="btn green"  onclick="orderTable(2)">注文</button></td>
+          <td><button class="btn green"  onclick="historyTable(2)">履歴</button></td>
+        </tr>
+        <tr>
+          <td>3</td><td>食事中</td>
+          <td><button class="btn orange" onclick="callTable(3)">未対応</button></td>
+          <td><button class="btn green"  onclick="orderTable(3)">注文</button></td>
+          <td><button class="btn green"  onclick="historyTable(3)">履歴</button></td>
+        </tr>
+        <tr>
+          <td>4</td><td>空席</td>
+          <td><button class="btn light" onclick="callTable(4)">なし</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>5</td><td>空席</td>
+          <td><button class="btn gray" onclick="callTable(5)">使用中止</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>6</td><td>準備中</td>
+          <td><button class="btn orange" onclick="callTable(6)">要対応</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>7</td><td>空席</td>
+          <td><button class="btn light" onclick="callTable(7)">なし</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>8</td><td>空席</td>
+          <td><button class="btn gray" onclick="callTable(8)">使用中止</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>9</td><td>食事中</td>
+          <td><button class="btn green"  onclick="callTable(9)">対応中</button></td>
+          <td><button class="btn green"  onclick="orderTable(9)">注文</button></td>
+          <td><button class="btn green"  onclick="historyTable(9)">履歴</button></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面2: 未配膳
+  ============================================================ -->
+  <div id="screen-wait" class="screen">
+    <div class="content-area">未配膳画面</div>
+  </div>
+
+  <!-- ============================================================
+       画面3: 案内
+  ============================================================ -->
+  <div id="screen-guide" class="screen">
+    <div class="content-area">案内画面</div>
+  </div>
+
+  <!-- ============================================================
+       画面4: 商品管理
+  ============================================================ -->
+  <div id="screen-menu" class="screen">
+    <div class="content-area">商品管理</div>
+  </div>
+
+  <!-- ===== 共通フッター ===== -->
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+</div>
+
+<script>
+/* ========================================
+   タブ切替（tyuumonn.html 方式）
+======================================== */
+function switchTab(e, screenId) {
+  // 全画面を非表示
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  // 対象画面を表示
+  document.getElementById(screenId).classList.add('active');
+
+  // タブのアクティブ状態を更新
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+}
+
+/* ========================================
+   卓ボタン動作
+======================================== */
+function callTable(n) { location.href = 'taioujoukyou.html?table=' + n; }
+function orderTable(n)   { location.href = 'tyuumonn.html'; }
+function historyTable(n) { location.href = 'rireki.html?table=' + n; }
+
+// 追記
+const statusMap = {
+  'なし':     { text: 'なし',     cls: 'light' },
+  '対応中':   { text: '対応中',   cls: 'green' },
+  '要応援':   { text: '要応援',   cls: 'orange' },
+  '清掃応援': { text: '清掃応援', cls: 'orange' },
+  '清掃中':   { text: '清掃中',   cls: 'orange' },
+  '使用中止': { text: '使用中止', cls: 'gray' },
+};
+
+window.addEventListener('load', () => {
+  document.querySelector('.tab').classList.add('active-tab');
+  const saved = localStorage.getItem('tableStatus');
+  if (!saved) return;
+  const all = JSON.parse(saved); // { "2": "要応援", ... }
+  Object.entries(all).forEach(([tableNo, status]) => {
+    const s = statusMap[status];
+    if (!s) return;
+    // 卓番号が一致するボタンを探して更新
+    document.querySelectorAll('#screen-table tbody tr').forEach(tr => {
+      if (tr.cells[0]?.textContent == tableNo) {
+        const btn = tr.cells[2]?.querySelector('button');
+        if (btn) {
+          btn.textContent = s.text;
+          btn.className = 'btn ' + s.cls;
+        }
+      }
+    });
+  });
+});
+</script>
+
+</body>
+</html>

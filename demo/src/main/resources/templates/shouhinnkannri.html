@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>商品管理 - みどり亭</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+/* ===== スマホ枠（default_nav.html共通） ===== */
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== ヘッダー（共通） ===== */
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* ===== タブ（共通） ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab:last-child { border-right: none; }
+.tab.active-tab { background: #003d00; color: #fff; font-weight: bold; }
+
+/* ===== 下の黒いエリア（共通） ===== */
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+}
+
+/* ===== ホームボタン（共通） ===== */
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+
+/* ===== 画面切替 ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ===== コンテンツエリア（スクロール） ===== */
+.content-area {
+  height: calc(820px - 116px - 120px); /* header + tabs + bottom */
+  overflow-y: auto;
+}
+
+/* ===== グリッド ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 10px;
+  padding: 20px;
+}
+
+/* ===== 汎用ボタン ===== */
+.btn {
+  height: 80px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 15px;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1.4;
+  padding: 6px;
+}
+.btn:active { opacity: .75; }
+
+/* ===== 戻るボタン ===== */
+.back-btn {
+  display: block;
+  margin: 10px auto 20px;
+  padding: 12px 40px;
+  font-size: 18px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* ===== オーバーレイ（モーダル背景） ===== */
+.overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.15);
+  z-index: 10;
+}
+.overlay.active { display: block; }
+
+/* ===== 確認カード ===== */
+.confirm-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.confirm-title {
+  border: 3px solid #000;
+  padding: 12px;
+  font-size: 18px;
+  margin-bottom: 24px;
+  border-radius: 4px;
+}
+
+.confirm-body {
+  font-size: 15px;
+  line-height: 2.2;
+  text-align: left;
+  padding: 0 10px;
+}
+
+.confirm-body p {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.price-row input {
+  width: 90px;
+  height: 30px;
+  border: 1px solid #999;
+  padding: 4px;
+}
+
+.confirm-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 28px;
+}
+
+.modal-btn {
+  background: #003d00;
+  color: #fff;
+  border: none;
+  padding: 10px 32px;
+  border-radius: 15px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.modal-btn:active { opacity: .75; }
+
+/* ===== 完了カード ===== */
+.done-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.done-title {
+  border: 3px solid #000;
+  padding: 12px;
+  font-size: 18px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+.done-body {
+  font-size: 15px;
+  line-height: 2.4;
+}
+
+/* 完了カード内画像 */
+.done-img {
+  width: 120px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  display: none;
+}
+
+.ok-btn {
+  display: block;
+  margin: 24px auto 0;
+  padding: 10px 40px;
+  font-size: 18px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+}
+.ok-btn:active { opacity: .75; }
+
+/* ===== 商品追加フォーム ===== */
+.add-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.add-img-box {
+  width: 140px;
+  height: 110px;
+  background: #999;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.add-img-box img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.add-img-box input[type="file"] {
+  position: absolute;
+  opacity: 0;
+  width: 100%; height: 100%;
+  cursor: pointer;
+}
+
+.form-line {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.form-line input[type="text"] {
+  width: 130px;
+  height: 30px;
+  border: 1px solid #999;
+  padding: 4px;
+}
+.form-line select {
+  width: 130px;
+  height: 30px;
+}
+
+/* 飲み放題区分 */
+.nomihoudai-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+<div class="phone">
+
+  <!-- ===== 共通ヘッダー ===== -->
+  <div class="header">みどり亭</div>
+
+  <!-- ===== 共通タブ ===== -->
+  <div class="tabs">
+    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
+    <div class="tab active-tab">商品管理</div>
+  </div>
+
+  <!-- ============================================================
+       画面1: 商品管理一覧（カテゴリ選択）
+  ============================================================ -->
+  <div id="screen-list" class="screen active">
+    <div class="content-area">
+      <div class="grid">
+        <button class="btn" onclick="goCategory()">焼き鳥</button>
+        <button class="btn">アルコール</button>
+        <button class="btn">ソフトドリンク</button>
+        <button class="btn">デザート</button>
+        <button class="btn">漬物</button>
+        <button class="btn">一品</button>
+        <button class="btn">盛り合わせ</button>
+        <button class="btn">食べ放題</button>
+        <button class="btn">飲み放題</button>
+        <button class="btn">カテゴリー追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面2: 商品管理_商品一覧（焼き鳥サブ）
+  ============================================================ -->
+  <div id="screen-category" class="screen">
+    <div class="content-area">
+      <div class="grid">
+        <button class="btn" onclick="openConfirmEdit('モモ焼き鳥(タレ)')">モモ焼き鳥（タレ）</button>
+        <button class="btn" onclick="openConfirmEdit('モモ焼き鳥(塩)')">モモ焼き鳥（塩）</button>
+        <button class="btn" onclick="openConfirmEdit('砂肝')">砂肝</button>
+        <button class="btn" onclick="openConfirmEdit('カワ焼き鳥(タレ)')">カワ焼き鳥（タレ）</button>
+        <button class="btn" onclick="openConfirmEdit('カワ焼き鳥(塩)')">カワ焼き鳥（塩）</button>
+        <button class="btn" onclick="openConfirmEdit('サンカク')">サンカク</button>
+        <button class="btn" onclick="openConfirmEdit('ハツ')">ハツ</button>
+        <button class="btn" onclick="openConfirmEdit('レバー')">レバー</button>
+        <button class="btn" onclick="goAddProduct()">商品追加</button>
+      </div>
+      <button class="back-btn" onclick="showScreen('screen-list')">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面3: 商品管理確認（オーバーレイ）
+  ============================================================ -->
+  <div id="overlay-confirm" class="overlay">
+    <div class="confirm-card">
+      <div class="confirm-title">商品管理確定</div>
+      <div class="confirm-body">
+        <p id="edit-name">商品名：モモ焼き鳥(タレ)</p>
+
+        <div class="radio-row">
+          <span>商品売切</span>
+          <input type="radio" name="action" id="radio-soldout" onchange="clearPrice()">
+        </div>
+        <div class="radio-row">
+          <span>商品削除</span>
+          <input type="radio" name="action" id="radio-delete" onchange="clearPrice()">
+        </div>
+        <div class="price-row">
+          <span>値段変更</span>
+          <input type="text" id="price-input" oninput="onPriceInput()" placeholder="例: 500">
+        </div>
+      </div>
+      <div class="confirm-buttons">
+        <button class="modal-btn" onclick="closeConfirmEdit()">No</button>
+        <button class="modal-btn" onclick="executeEdit()">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面4: 商品管理完了（オーバーレイ）
+  ============================================================ -->
+  <div id="overlay-done" class="overlay">
+    <div class="done-card">
+      <div class="done-title">商品管理完了</div>
+      <div class="done-body">
+        <p id="done-name"></p>
+        <p id="done-line1"></p>
+        <p id="done-line2"></p>
+      </div>
+      <button class="ok-btn" onclick="finishEdit()">ok</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面5: 商品追加入力フォーム（オーバーレイ）
+  ============================================================ -->
+  <div id="overlay-add" class="overlay">
+    <div class="add-card">
+      <div class="confirm-title">商品追加確定</div>
+
+      <div class="add-img-box" id="add-img-box">
+        <span id="add-img-label">画像を挿入してください</span>
+        <img id="add-img-preview" src="" alt="">
+        <input type="file" accept="image/*" onchange="previewImage(event)">
+      </div>
+
+      <div class="form-line">
+        <span>商品名：</span>
+        <input type="text" id="new-name" placeholder="商品名">
+      </div>
+      <div class="form-line">
+        <span>商品価格：</span>
+        <input type="text" id="new-price" placeholder="価格">
+      </div>
+      <div class="form-line">
+        <select id="new-category">
+          <option value="デザート">デザート</option>
+          <option value="ソフトドリンク">ソフトドリンク</option>
+          <option value="アルコール">アルコール</option>
+          <option value="焼き鳥">焼き鳥</option>
+          <option value="飲み放題">飲み放題</option>
+          <option value="食べ放題">食べ放題</option>
+        </select>
+      </div>
+      <div class="nomihoudai-row">
+        <span>飲み放題：</span>
+        <select id="new-nomihoudai">
+          <option value="なし">なし</option>
+          <option value="ノーマル">ノーマル</option>
+          <option value="プレミアム">プレミアム</option>
+          <option value="ノーマル、プレミアム">ノーマル、プレミアム</option>
+        </select>
+      </div>
+
+      <div class="confirm-buttons">
+        <button class="modal-btn" onclick="closeAddProduct()">No</button>
+        <button class="modal-btn" onclick="executeAdd()">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面6: 商品追加完了（オーバーレイ）
+  ============================================================ -->
+  <div id="overlay-add-done" class="overlay">
+    <div class="done-card">
+      <div class="done-title">商品追加完了</div>
+      <div class="done-body">
+        <img id="add-done-img" class="done-img" src="" alt="">
+        <p id="add-done-name"></p>
+        <p id="add-done-price"></p>
+        <p id="add-done-category"></p>
+        <p id="add-done-nomihoudai"></p>
+      </div>
+      <button class="ok-btn" onclick="finishAdd()">ok</button>
+    </div>
+  </div>
+
+  <!-- ===== 共通フッター ===== -->
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+</div>
+
+<script>
+/* ========================================
+   画面切替
+======================================== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showOverlay(id) {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function closeAllOverlays() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+}
+
+/* ========================================
+   カテゴリ画面
+======================================== */
+function goCategory() {
+  showScreen('screen-category');
+}
+
+/* ========================================
+   商品管理確認
+======================================== */
+function openConfirmEdit(name) {
+  document.getElementById('edit-name').textContent = '商品名：' + name;
+  // ラジオ・価格リセット
+  document.getElementById('radio-soldout').checked = false;
+  document.getElementById('radio-delete').checked = false;
+  document.getElementById('price-input').value = '';
+  showOverlay('overlay-confirm');
+}
+
+function closeConfirmEdit() {
+  closeAllOverlays();
+}
+
+function onPriceInput() {
+  const val = document.getElementById('price-input').value;
+  if (val !== '') {
+    document.getElementById('radio-soldout').checked = false;
+    document.getElementById('radio-delete').checked = false;
+  }
+}
+
+function clearPrice() {
+  document.getElementById('price-input').value = '';
+}
+
+function executeEdit() {
+  const name = document.getElementById('edit-name').textContent;
+  const soldout = document.getElementById('radio-soldout').checked;
+  const del = document.getElementById('radio-delete').checked;
+  const price = document.getElementById('price-input').value.trim();
+
+  document.getElementById('done-name').textContent = name;
+
+  if (soldout) {
+    document.getElementById('done-line1').textContent = '商品売切';
+    document.getElementById('done-line2').textContent = 'を完了いたしました。';
+  } else if (del) {
+    document.getElementById('done-line1').textContent = '商品削除';
+    document.getElementById('done-line2').textContent = 'を完了いたしました。';
+  } else if (price !== '') {
+    document.getElementById('done-line1').textContent = '変更後：' + price + '円';
+    document.getElementById('done-line2').textContent = '値段変更を完了いたしました。';
+  } else {
+    // 何も選択されていない場合は何もしない
+    return;
+  }
+
+  showOverlay('overlay-done');
+}
+
+function finishEdit() {
+  closeAllOverlays();
+  showScreen('screen-list');
+}
+
+/* ========================================
+   商品追加
+======================================== */
+let addImageDataUrl = '';
+
+function goAddProduct() {
+  // フォームリセット
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-price').value = '';
+  document.getElementById('new-category').value = 'デザート';
+  document.getElementById('new-nomihoudai').value = 'なし';
+  document.getElementById('add-img-preview').src = '';
+  document.getElementById('add-img-preview').style.display = 'none';
+  document.getElementById('add-img-label').style.display = '';
+  addImageDataUrl = '';
+  showOverlay('overlay-add');
+}
+
+function closeAddProduct() {
+  closeAllOverlays();
+}
+
+function previewImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    addImageDataUrl = ev.target.result;
+    const img = document.getElementById('add-img-preview');
+    img.src = addImageDataUrl;
+    img.style.display = 'block';
+    document.getElementById('add-img-label').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function executeAdd() {
+  const name = document.getElementById('new-name').value.trim();
+  const price = document.getElementById('new-price').value.trim();
+  const category = document.getElementById('new-category').value;
+  const nomihoudai = document.getElementById('new-nomihoudai').value;
+
+  // 完了画面へセット
+  const doneImg = document.getElementById('add-done-img');
+  if (addImageDataUrl) {
+    doneImg.src = addImageDataUrl;
+    doneImg.style.display = 'block';
+  } else {
+    doneImg.style.display = 'none';
+  }
+
+  document.getElementById('add-done-name').textContent = '商品名：' + (name || '（未入力）');
+  document.getElementById('add-done-price').textContent = '商品価格：' + (price ? price + '円' : '（未入力）');
+  document.getElementById('add-done-category').textContent = 'カテゴリー：' + category;
+  document.getElementById('add-done-nomihoudai').textContent = '飲み放題：' + nomihoudai;
+
+  showOverlay('overlay-add-done');
+}
+
+function finishAdd() {
+  closeAllOverlays();
+  showScreen('screen-list');
+}
+</script>
+
+</body>
+</html>

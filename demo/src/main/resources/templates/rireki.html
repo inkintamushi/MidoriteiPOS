@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>注文履歴 - みどり亭</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+}
+
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab:last-child { border-right: none; }
+.tab.active-tab {
+  background: #003d00;
+  color: #fff;
+  font-weight: bold;
+}
+
+.content-area {
+  height: calc(820px - 116px - 46px - 120px);
+  overflow-y: auto;
+}
+
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.list-table thead tr {
+  background: #fff;
+  border-bottom: 2px solid #555;
+}
+.list-table thead th {
+  padding: 10px 4px;
+  font-weight: bold;
+  text-align: center;
+  color: #222;
+}
+.list-table tbody tr {
+  border-bottom: 1px solid #ccc;
+}
+.list-table tbody td {
+  padding: 9px 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+.list-table tbody td:first-child {
+  padding-left: 10px;
+  text-align: left;
+}
+
+.edit-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  color: #fff;
+  line-height: 1.4;
+}
+.edit-btn.green  { background: #1b5e20; }
+.edit-btn.orange { background: #ef6c00; }
+
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+}
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+
+/* ===== オーバーレイ ===== */
+.overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.18);
+  z-index: 20;
+}
+.overlay.active { display: block; }
+
+/* ===== モーダルカード共通 ===== */
+.modal-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.modal-title {
+  border: 2px solid #000;
+  padding: 13px 10px;
+  font-size: 18px;
+  margin-bottom: 24px;
+  border-radius: 4px;
+}
+
+/* 確認モーダルの本文：ラベル＋値を左揃え */
+.modal-body {
+  font-size: 15px;
+  line-height: 2.4;
+  text-align: left;
+  padding: 0 10px;
+  margin-bottom: 8px;
+}
+
+/* 数量入力行 */
+.qty-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 2.4;
+}
+.qty-input {
+  width: 60px;
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.modal-sub {
+  font-size: 14px;
+  line-height: 2;
+  text-align: center;
+  margin-top: 12px;
+  color: #222;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 28px;
+}
+.modal-btn {
+  background: #003d00;
+  color: #fff;
+  border: none;
+  padding: 11px 32px;
+  border-radius: 15px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.modal-btn:active { opacity: .75; }
+
+/* 配膳編集モーダルのボタン群 */
+.edit-modal-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+.edit-modal-btn {
+  width: 180px;
+  padding: 12px 0;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.edit-modal-btn:active { opacity: .75; }
+
+.ok-btn {
+  display: block;
+  margin: 28px auto 0;
+  padding: 11px 44px;
+  font-size: 18px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+}
+.ok-btn:active { opacity: .75; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="header">みどり亭</div>
+
+  <!-- 卓選択タブをアクティブに（履歴は卓選択配下の画面） -->
+  <div class="tabs">
+    <div class="tab active-tab" onclick="location.href='taku.html'">卓選択</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
+    <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
+  </div>
+
+  <div class="content-area">
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th>商品名</th>
+          <th>注文数</th>
+          <th>配膳数</th>
+          <th>編集</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ビール</td><td>9</td><td>9</td>
+          <td><button class="edit-btn green" onclick="openEdit('ビール',9,9,'12:30',9,this)">配膳済</button></td>
+        </tr>
+        <tr>
+          <td>ハイボール</td><td>6</td><td>6</td>
+          <td><button class="edit-btn green" onclick="openEdit('ハイボール',6,6,'12:33',9,this)">配膳済</button></td>
+        </tr>
+        <tr>
+          <td>檸檬ハイ</td><td>8</td><td>8</td>
+          <td><button class="edit-btn green" onclick="openEdit('檸檬ハイ',8,8,'12:35',9,this)">配膳済</button></td>
+        </tr>
+        <tr>
+          <td>ビビ</td><td>3</td><td>1</td>
+          <td><button class="edit-btn orange" onclick="openEdit('ビビ',3,1,'12:42',9,this)">未配膳</button></td>
+        </tr>
+        <tr>
+          <td>梅日本酒</td><td>4</td><td>4</td>
+          <td><button class="edit-btn green" onclick="openEdit('梅日本酒',4,4,'12:45',9,this)">配膳済</button></td>
+        </tr>
+        <tr>
+          <td>モモ（タレ）</td><td>7</td><td>5</td>
+          <td><button class="edit-btn orange" onclick="openEdit('モモ（タレ）',7,5,'12:50',9,this)">未配膳</button></td>
+        </tr>
+        <tr>
+          <td>モモ（塩）</td><td>2</td><td>2</td>
+          <td><button class="edit-btn green" onclick="openEdit('モモ（塩）',2,2,'12:52',9,this)">配膳済</button></td>
+        </tr>
+        <tr>
+          <td>砂肝</td><td>7</td><td>4</td>
+          <td><button class="edit-btn orange" onclick="openEdit('砂肝',7,4,'13:00',9,this)">未配膳</button></td>
+        </tr>
+        <tr>
+          <td>サンカク</td><td>7</td><td>7</td>
+          <td><button class="edit-btn green" onclick="openEdit('サンカク',7,7,'13:05',9,this)">配膳済</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== オーバーレイ1: 配膳編集モーダル ===== -->
+  <div id="overlay-edit" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">配膳編集</div>
+      <div class="modal-sub">配膳編集<br>をいたします。</div>
+      <div class="edit-modal-buttons">
+        <button class="edit-modal-btn" onclick="openHaizen()">配膳取り消し</button>
+        <button class="edit-modal-btn" onclick="openCancel()">注文キャンセル</button>
+        <button class="edit-modal-btn" onclick="closeAll()">戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== オーバーレイ2: 配膳済み取り消し確認 ===== -->
+  <div id="overlay-haizen-confirm" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">配膳済み取り消し</div>
+      <div class="modal-body">
+        <p id="haizen-table"></p>
+        <p id="haizen-item"></p>
+        <div class="qty-row">
+          <span>数量：</span>
+          <input id="haizen-qty-input" class="qty-input" type="number" min="0">
+        </div>
+        <p id="haizen-time"></p>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-btn" onclick="closeAll()">No</button>
+        <button class="modal-btn" onclick="openHaizenDone()">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== オーバーレイ3: 配膳済み取り消し完了 ===== -->
+  <div id="overlay-haizen-done" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">配膳済み取り消し</div>
+      <div class="modal-body">
+        <p id="haizen-done-table"></p>
+        <p id="haizen-done-item"></p>
+        <p id="haizen-done-qty"></p>
+      </div>
+      <div class="modal-sub">配膳済み取り消し<br>を完了いたしました。</div>
+      <button class="ok-btn" onclick="closeAll()">ok</button>
+    </div>
+  </div>
+
+  <!-- ===== オーバーレイ4: 注文キャンセル確認 ===== -->
+  <div id="overlay-cancel-confirm" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">注文キャンセル</div>
+      <div class="modal-body">
+        <p id="cancel-table"></p>
+        <p id="cancel-item"></p>
+        <div class="qty-row">
+          <span>数量：</span>
+          <input id="cancel-qty-input" class="qty-input" type="number" min="0">
+        </div>
+        <p id="cancel-time"></p>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-btn" onclick="closeAll()">No</button>
+        <button class="modal-btn" onclick="openCancelDone()">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== オーバーレイ5: 注文キャンセル完了 ===== -->
+  <div id="overlay-cancel-done" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">注文キャンセル</div>
+      <div class="modal-body">
+        <p id="cancel-done-table"></p>
+        <p id="cancel-done-item"></p>
+        <p id="cancel-done-qty"></p>
+      </div>
+      <div class="modal-sub">注文キャンセル<br>を完了いたしました。</div>
+      <button class="ok-btn" onclick="closeAll()">ok</button>
+    </div>
+  </div>
+
+  <div class="bottom"></div>
+  <div class="home"></div>
+</div>
+
+<script>
+let current = {};
+
+function openEdit(item, orderQty, deliveredQty, time, tableNo, btn) {
+  current = { item, orderQty, deliveredQty, time, tableNo, row: btn };
+  showOverlay('overlay-edit');
+}
+
+/* 配膳済み取り消し確認へ */
+function openHaizen() {
+  document.getElementById('haizen-table').textContent = '卓番号：' + current.tableNo;
+  document.getElementById('haizen-item').textContent  = '商品名：' + current.item;
+  const input = document.getElementById('haizen-qty-input');
+  input.value = 1;
+  input.min = 1;
+  input.max = current.deliveredQty;
+  document.getElementById('haizen-time').textContent  = '注文時刻：' + current.time;
+  showOverlay('overlay-haizen-confirm');
+}
+
+function openHaizenDone() {
+  let cancelQty = parseInt(document.getElementById('haizen-qty-input').value, 10);
+  cancelQty = Math.min(Math.max(cancelQty, 1), current.deliveredQty);
+
+  const newDeliveredQty = current.deliveredQty - cancelQty;
+
+  document.getElementById('haizen-done-table').textContent = '卓番号：' + current.tableNo;
+  document.getElementById('haizen-done-item').textContent  = '商品名：' + current.item;
+  document.getElementById('haizen-done-qty').textContent   = '数量：' + newDeliveredQty;
+
+  const tr = current.row.closest('tr');
+  const cells = tr.querySelectorAll('td');
+  cells[2].textContent = newDeliveredQty;
+
+  current.deliveredQty = newDeliveredQty;
+  updateRowButton(tr, current);
+
+  showOverlay('overlay-haizen-done');
+}
+
+/* 注文キャンセル確認へ */
+function openCancel() {
+  document.getElementById('cancel-table').textContent = '卓番号：' + current.tableNo;
+  document.getElementById('cancel-item').textContent  = '商品名：' + current.item;
+  const input = document.getElementById('cancel-qty-input');
+  // キャンセルできる最大数 = 注文数 - 配膳数（配膳済みは取り消せないため）
+  const maxCancel = current.orderQty - current.deliveredQty;
+  input.value = 1;
+  input.min = 1;
+  input.max = maxCancel;
+  document.getElementById('cancel-time').textContent  = '注文時刻：' + current.time;
+  showOverlay('overlay-cancel-confirm');
+}
+
+function openCancelDone() {
+  let cancelQty = parseInt(document.getElementById('cancel-qty-input').value, 10);
+  const maxCancel = current.orderQty - current.deliveredQty;
+  cancelQty = Math.min(Math.max(cancelQty, 1), maxCancel);
+
+  const newOrderQty = current.orderQty - cancelQty;
+
+  document.getElementById('cancel-done-table').textContent = '卓番号：' + current.tableNo;
+  document.getElementById('cancel-done-item').textContent  = '商品名：' + current.item;
+  document.getElementById('cancel-done-qty').textContent   = '数量：' + newOrderQty;
+
+  const tr = current.row.closest('tr');
+  const cells = tr.querySelectorAll('td');
+
+  if (newOrderQty <= 0) {
+    tr.remove();
+  } else {
+    cells[1].textContent = newOrderQty;
+    current.orderQty = newOrderQty;
+    updateRowButton(tr, current);
+  }
+
+  showOverlay('overlay-cancel-done');
+}
+
+/* 注文数と配膳数を比較してボタンラベル・色・onclickを更新 */
+function updateRowButton(tr, data) {
+  const btn = tr.querySelector('.edit-btn');
+  if (data.deliveredQty >= data.orderQty) {
+    btn.textContent = '配膳済';
+    btn.className = 'edit-btn green';
+  } else {
+    btn.textContent = '未配膳';
+    btn.className = 'edit-btn orange';
+  }
+  btn.onclick = function() {
+    openEdit(data.item, data.orderQty, data.deliveredQty, data.time, data.tableNo, btn);
+  };
+  current.row = btn;
+}
+
+function showOverlay(id) {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function closeAll() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+}
+</script>
+
+</body>
+</html>

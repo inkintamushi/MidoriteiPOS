@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>対応状況 - みどり亭</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #dcdcdc;
+  font-family: sans-serif;
+}
+
+/* ===== スマホ枠（default_nav.html 共通） ===== */
+.phone {
+  width: 380px;
+  height: 820px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 50px;
+  border: 5px solid #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== ヘッダー（共通） ===== */
+.header {
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+  font-size: 36px;
+  padding: 40px 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* ===== タブ（共通） ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+.tab {
+  text-align: center;
+  padding: 14px 0;
+  background: #eee;
+  border-right: 1px solid #999;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab:last-child { border-right: none; }
+.tab.active-tab {
+  background: #003d00;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* ===== 下の黒いエリア（共通） ===== */
+.bottom {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+}
+
+/* ===== ホームボタン（共通） ===== */
+.home {
+  position: absolute;
+  bottom: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+
+/* ===== 画面切替 ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ===== コンテンツエリア ===== */
+.content-area {
+  height: calc(820px - 116px - 46px - 120px);
+  overflow-y: auto;
+}
+
+/* ===================================================
+   画面1：対応状況変更
+=================================================== */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 14px;
+  padding: 30px 24px;
+}
+
+.status-btn {
+  height: 80px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1.4;
+}
+.status-btn:active { opacity: .75; }
+
+/* 使用中止は1列目中央配置 */
+.status-btn.center {
+  grid-column: 2;
+}
+
+/* ===================================================
+   オーバーレイ（モーダル背景）
+=================================================== */
+.overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.15);
+  z-index: 20;
+}
+.overlay.active { display: block; }
+
+/* ===== モーダルカード ===== */
+.modal-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 30px;
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 28px 22px 32px;
+  text-align: center;
+}
+
+.modal-title {
+  border: 2px solid #000;
+  padding: 14px 10px;
+  font-size: 18px;
+  margin-bottom: 60px;
+  border-radius: 4px;
+}
+
+.modal-text {
+  font-size: 15px;
+  line-height: 2;
+  color: #222;
+  margin-bottom: 50px;
+}
+
+.ok-btn {
+  display: block;
+  margin: 0 auto;
+  padding: 12px 50px;
+  font-size: 18px;
+  background: #003d00;
+  color: #fff;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+}
+.ok-btn:active { opacity: .75; }
+
+/* ===================================================
+   画面3：卓選択画面（taku.html準拠）
+=================================================== */
+#screen-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+#screen-table th,
+#screen-table td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+}
+#screen-table th { background: #eee; }
+
+/* 呼出・注文ボタン */
+.btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+.btn:active { opacity: .75; }
+.btn-green  { background: #1b5e20; }
+.btn-orange { background: #ef6c00; }
+.btn-light  { background: #8bc34a; }
+.btn-gray   { background: #777; }
+</style>
+</head>
+
+<body>
+<div class="phone">
+
+  <!-- ===== 共通ヘッダー（default_nav.html） ===== -->
+  <div class="header">みどり亭</div>
+
+  <!-- ===== 共通タブ（default_nav.html） ===== -->
+  <div class="tabs">
+    <div class="tab active-tab">卓選択</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
+    <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
+  </div>
+
+  <!-- ============================================================
+       画面1：対応状況変更画面
+  ============================================================ -->
+  <div id="screen-status" class="screen active">
+    <div class="content-area">
+      <div class="status-grid">
+        <button class="status-btn" onclick="openDone('対応完了')">対応完了</button>
+        <button class="status-btn" onclick="openDone('要応援')">要応援</button>
+        <button class="status-btn" onclick="openDone('対応中')">対応中</button>
+
+        <button class="status-btn" onclick="openDone('清掃完了')">清掃完了</button>
+        <button class="status-btn" onclick="openDone('清掃応援')">清掃応援</button>
+        <button class="status-btn" onclick="openDone('清掃中')">清掃中</button>
+
+        <button class="status-btn center" onclick="openDone('使用中止')">使用中止</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面3：卓選択画面（taku.html準拠）
+  ============================================================ -->
+  <div id="screen-table" class="screen">
+    <div class="content-area">
+      <table>
+        <tr>
+          <th>卓番号</th><th>空席状況</th><th>呼出状況</th><th>注文</th><th>履歴</th>
+        </tr>
+        <tr>
+          <td>1</td><td>準備中</td>
+          <td><button class="btn btn-green"  onclick="callTable(1)">対応中</button></td>
+          <td><button class="btn btn-green"  onclick="orderTable(1)">注文</button></td>
+          <td><button class="btn btn-green"  onclick="histTable(1)">履歴</button></td>
+        </tr>
+        <tr>
+          <td>2</td><td>食事中</td>
+          <td><button class="btn btn-orange" onclick="callTable(2)">要対応</button></td>
+          <td><button class="btn btn-green"  onclick="orderTable(2)">注文</button></td>
+          <td><button class="btn btn-green"  onclick="histTable(2)">履歴</button></td>
+        </tr>
+        <tr>
+          <td>3</td><td>食事中</td>
+          <td><button class="btn btn-orange" onclick="callTable(3)">未対応</button></td>
+          <td><button class="btn btn-green"  onclick="orderTable(3)">注文</button></td>
+          <td><button class="btn btn-green"  onclick="histTable(3)">履歴</button></td>
+        </tr>
+        <tr>
+          <td>4</td><td>空席</td>
+          <td><button class="btn btn-light">なし</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>5</td><td>空席</td>
+          <td><button class="btn btn-light">なし</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>6</td><td>準備中</td>
+          <td><button class="btn btn-orange" onclick="callTable(6)">要対応</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>7</td><td>空席</td>
+          <td><button class="btn btn-light">なし</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>8</td><td>空席</td>
+          <td><button class="btn btn-gray">使用中止</button></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>9</td><td>食事中</td>
+          <td><button class="btn btn-green"  onclick="callTable(9)">対応中</button></td>
+          <td><button class="btn btn-green"  onclick="orderTable(9)">注文</button></td>
+          <td><button class="btn btn-green"  onclick="histTable(9)">履歴</button></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       オーバーレイ：対応状態変更完了モーダル
+  ============================================================ -->
+  <div id="overlay-done" class="overlay">
+    <div class="modal-card">
+      <div class="modal-title">対応状態変更完了</div>
+      <div class="modal-text">
+        対応状態変更<br>を完了いたしました。
+      </div>
+      <button class="ok-btn" onclick="finishStatus()">ok</button>
+    </div>
+  </div>
+
+  <!-- ===== 共通フッター（default_nav.html） ===== -->
+  <div class="bottom"></div>
+  <div class="home"></div>
+
+</div>
+
+<script>
+/* ========================================
+   卓ボタン動作（taku.html準拠）
+======================================== */
+function callTable(n)    { location.href = 'taioujoukyou.html'; }
+function orderTable(n)   { location.href = 'tyuumonn.html'; }
+function historyTable(n) { alert(n + '番卓 履歴'); }
+
+/* ========================================
+   画面切替
+======================================== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ========================================
+   完了モーダル
+======================================== */
+const resultMap = {
+  '対応完了': 'なし',
+  '清掃完了': 'なし',
+  '要応援':   '要応援',
+  '対応中':   '対応中',
+  '清掃応援': '清掃応援',
+  '清掃中':   '清掃中',
+  '使用中止': '使用中止',
+};
+
+let currentStatus = null;
+
+function openDone(type) {
+  currentStatus = type;
+  document.getElementById('overlay-done').classList.add('active');
+}
+
+function finishStatus() {
+  const params = new URLSearchParams(location.search);
+  const tableNo = params.get('table');
+  if (tableNo && currentStatus) {
+    const all = JSON.parse(localStorage.getItem('tableStatus') || '{}');
+    all[tableNo] = resultMap[currentStatus];
+    localStorage.setItem('tableStatus', JSON.stringify(all));
+  }
+  document.getElementById('overlay-done').classList.remove('active');
+  window.location.href = 'taku.html';
+}
+
+/* ========================================
+   初期描画
+======================================== */
+</script>
+
+</body>
+</html>
