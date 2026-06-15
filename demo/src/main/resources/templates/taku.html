@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>みどり亭</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -78,12 +79,13 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  table-layout: fixed;
+  font-size: 13px;
 }
 
 th, td {
   border: 1px solid #ccc;
-  padding: 6px;
+  padding: 5px 3px;
   text-align: center;
 }
 
@@ -93,18 +95,86 @@ th {
 
 /* ===== ボタン ===== */
 .btn {
-  padding: 5px 10px;
+  min-width: 52px;
+  padding: 5px 6px;
   border: none;
   border-radius: 5px;
   color: white;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .green  { background: #1b5e20; }
 .orange { background: #ef6c00; }
 .light  { background: #8bc34a; }
 .gray   { background: #777; }
+
+.qr-btn {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.qr-modal {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, .35);
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-modal.active {
+  display: flex;
+}
+
+.qr-modal-card {
+  width: 300px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 28px;
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.qr-modal-title {
+  border: 2px solid #000;
+  padding: 8px;
+  margin-bottom: 14px;
+  font-weight: bold;
+}
+
+.qr-modal-text {
+  min-height: 38px;
+  margin-bottom: 10px;
+  color: #333;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.qr-code-box {
+  width: 180px;
+  height: 180px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #999;
+  background: #fff;
+}
+
+.qr-code-box canvas,
+.qr-code-box img {
+  width: 160px;
+  height: 160px;
+}
+
+.qr-modal-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
 
 /* ===== 下の黒いエリア（default_nav.html 共通） ===== */
 .bottom {
@@ -128,8 +198,11 @@ th {
   border: 4px solid #fff;
   border-radius: 50%;
 }
+
 </style>
 
+<link rel="stylesheet" href="/css/employee-auth.css">
+<script src="/js/employee-auth.js"></script>
 </head>
 <body>
 
@@ -158,55 +231,60 @@ th {
           <th>呼出状況</th>
           <th>注文</th>
           <th>履歴</th>
+          <th>QR</th>
         </tr>
         <tr>
           <td>1</td><td>食事中</td>
           <td><button class="btn green"  onclick="callTable(1)">対応中</button></td>
           <td><button class="btn green"  onclick="orderTable(1)">注文</button></td>
           <td><button class="btn green"  onclick="historyTable(1)">履歴</button></td>
+          <td><button class="btn green qr-btn" onclick="reissueQr(1)">再発行</button></td>
         </tr>
         <tr>
           <td>2</td><td>食事中</td>
           <td><button class="btn orange" onclick="callTable(2)">要対応</button></td>
           <td><button class="btn green"  onclick="orderTable(2)">注文</button></td>
           <td><button class="btn green"  onclick="historyTable(2)">履歴</button></td>
+          <td><button class="btn green qr-btn" onclick="reissueQr(2)">再発行</button></td>
         </tr>
         <tr>
           <td>3</td><td>食事中</td>
           <td><button class="btn orange" onclick="callTable(3)">未対応</button></td>
           <td><button class="btn green"  onclick="orderTable(3)">注文</button></td>
           <td><button class="btn green"  onclick="historyTable(3)">履歴</button></td>
+          <td><button class="btn green qr-btn" onclick="reissueQr(3)">再発行</button></td>
         </tr>
         <tr>
           <td>4</td><td>空席</td>
           <td><button class="btn light" onclick="callTable(4)">なし</button></td>
-          <td></td><td></td>
+          <td></td><td></td><td></td>
         </tr>
         <tr>
           <td>5</td><td>空席</td>
           <td><button class="btn gray" onclick="callTable(5)">使用中止</button></td>
-          <td></td><td></td>
+          <td></td><td></td><td></td>
         </tr>
         <tr>
           <td>6</td><td>準備中</td>
           <td><button class="btn orange" onclick="callTable(6)">要対応</button></td>
-          <td></td><td></td>
+          <td></td><td></td><td></td>
         </tr>
         <tr>
           <td>7</td><td>空席</td>
           <td><button class="btn light" onclick="callTable(7)">なし</button></td>
-          <td></td><td></td>
+          <td></td><td></td><td></td>
         </tr>
         <tr>
           <td>8</td><td>空席</td>
           <td><button class="btn gray" onclick="callTable(8)">使用中止</button></td>
-          <td></td><td></td>
+          <td></td><td></td><td></td>
         </tr>
         <tr>
           <td>9</td><td>食事中</td>
           <td><button class="btn green"  onclick="callTable(9)">対応中</button></td>
           <td><button class="btn green"  onclick="orderTable(9)">注文</button></td>
           <td><button class="btn green"  onclick="historyTable(9)">履歴</button></td>
+          <td><button class="btn green qr-btn" onclick="reissueQr(9)">再発行</button></td>
         </tr>
       </table>
     </div>
@@ -237,6 +315,17 @@ th {
   <div class="bottom"></div>
   <div class="home"></div>
 
+  <div id="qr-modal" class="qr-modal">
+    <div class="qr-modal-card">
+      <div class="qr-modal-title">QR再発行</div>
+      <div id="qr-modal-text" class="qr-modal-text"></div>
+      <div id="qr-code-box" class="qr-code-box"></div>
+      <div class="qr-modal-buttons">
+        <button class="btn green" type="button" onclick="closeQrModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -258,8 +347,44 @@ function switchTab(e, screenId) {
    卓ボタン動作
 ======================================== */
 function callTable(n) { location.href = 'taioujoukyou.html?table=' + n; }
-function orderTable(n)   { location.href = 'tyuumonn.html'; }
+function orderTable(n) {
+  localStorage.setItem('currentOrderTable', n);
+  location.href = 'tyuumonn.html?table=' + n;
+}
 function historyTable(n) { location.href = 'rireki.html?table=' + n; }
+
+function buildOrderQrUrl(tableNo) {
+  const url = new URL('/order', location.origin);
+  url.searchParams.set('table', tableNo);
+  return url.href;
+}
+
+function reissueQr(tableNo) {
+  const qrUrl = buildOrderQrUrl(tableNo);
+  const qrBox = document.getElementById('qr-code-box');
+  const text = document.getElementById('qr-modal-text');
+
+  localStorage.setItem('currentOrderTable', tableNo);
+  text.textContent = `卓番号：${tableNo} / ${qrUrl}`;
+  qrBox.innerHTML = '';
+
+  if (window.QRCode) {
+    new QRCode(qrBox, {
+      text: qrUrl,
+      width: 160,
+      height: 160,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    qrBox.textContent = qrUrl;
+  }
+
+  document.getElementById('qr-modal').classList.add('active');
+}
+
+function closeQrModal() {
+  document.getElementById('qr-modal').classList.remove('active');
+}
 
 // 追記
 const statusMap = {
@@ -292,6 +417,7 @@ window.addEventListener('load', () => {
   });
 });
 </script>
+<script src="/js/table-management-db.js"></script>
 
 </body>
 </html>

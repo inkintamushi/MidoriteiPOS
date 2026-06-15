@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>客案内 - みどり亭</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -148,6 +150,11 @@ body {
   font-size: 14px;
   cursor: pointer;
 }
+.green-btn:disabled {
+  background: #9a9a9a;
+  cursor: not-allowed;
+  opacity: .65;
+}
 .green-btn:active { opacity: .75; }
 
 .green-btn.back {
@@ -266,17 +273,63 @@ body {
   letter-spacing: 1px;
 }
 
-.qr-box {
-  width: 200px;
-  height: 160px;
-  background: #888;
-  color: #fff;
+.code-value {
+  min-height: 34px;
+  margin-bottom: 10px;
+  color: #333;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.barcode-box {
+  width: 260px;
+  min-height: 94px;
+  margin: 0 auto 14px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #ccc;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+}
+
+.barcode-box svg {
+  width: 100%;
+  height: auto;
+}
+
+.qr-box {
+  width: 180px;
+  height: 180px;
+  background: #fff;
+  border: 1px solid #ccc;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
   border-radius: 6px;
   margin: 0 auto 12px;
+}
+
+.qr-box canvas,
+.qr-box img {
+  width: 160px;
+  height: 160px;
+}
+
+.qr-card > .qr-id-row {
+  display: none;
+}
+
+.qr-card > .qr-id-row:first-child {
+  display: block;
+}
+
+.qr-card > .qr-box:not(#guidance-qr),
+.barcode-btn {
+  display: none;
 }
 
 .barcode-btn {
@@ -384,7 +437,10 @@ body {
   cursor: pointer;
 }
 .ok-btn:active { opacity: .75; }
+
 </style>
+<link rel="stylesheet" href="/css/employee-auth.css">
+<script src="/js/employee-auth.js"></script>
 </head>
 
 <body>
@@ -470,7 +526,7 @@ body {
 
         <div class="input-btns">
           <button class="green-btn" onclick="showScreen('s-annai-input')">No</button>
-          <button class="green-btn" onclick="execAnnai()">Yes</button>
+          <button id="annai-yes" class="green-btn" onclick="execAnnai()" disabled>Yes</button>
         </div>
       </div>
     </div>
@@ -508,6 +564,12 @@ body {
     <div class="content-area">
       <div class="qr-screen-wrap">
         <div class="qr-card">
+          <div class="qr-id-row">案内コード</div>
+          <div id="guidance-code-text" class="code-value">未作成</div>
+          <div class="barcode-box">
+            <svg id="guidance-barcode"></svg>
+          </div>
+          <div id="guidance-qr" class="qr-box">QRコード</div>
           <div class="qr-id-row">顧客ID ●●●●●●●●●●</div>
           <div class="qr-box">QRコード表示</div>
           <button class="barcode-btn">一次元バーコード</button>
@@ -672,11 +734,31 @@ document.addEventListener('DOMContentLoaded', function() {
       this._wasChecked = this.checked;
     });
   });
+  document.querySelectorAll('input[name="taku"], input[name="plan"]').forEach(function(input) {
+    input.addEventListener('change', updateAnnaiYesState);
+  });
+  document.getElementById('ninzu').addEventListener('input', updateAnnaiYesState);
+  updateAnnaiYesState();
 });
 
 function toggleRadio(radio) {
   if (radio._wasChecked) {
     radio.checked = false;
+  }
+  setTimeout(updateAnnaiYesState, 0);
+}
+
+function isAnnaiInputComplete() {
+  const hasTaku = document.querySelectorAll('input[name="taku"]:checked').length > 0;
+  const hasPlan = Boolean(document.querySelector('input[name="plan"]:checked'));
+  const ninzu = parseInt(document.getElementById('ninzu').value, 10);
+  return hasTaku && hasPlan && Number.isInteger(ninzu) && ninzu > 0;
+}
+
+function updateAnnaiYesState() {
+  const yesButton = document.getElementById('annai-yes');
+  if (yesButton) {
+    yesButton.disabled = !isAnnaiInputComplete();
   }
 }
 
@@ -688,17 +770,81 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
+function buildGuidanceCodeData(tables, ninzu, planCode) {
+  const tableCode = tables.length ? tables.join('-') : 'NONE';
+  const guestCode = parseInt(ninzu, 10) || 0;
+  return `MDT-T${tableCode}-N${guestCode}-P${planCode}`;
+}
+
+function buildOrderQrUrl(tableNo) {
+  const url = new URL('/order', location.origin);
+  url.searchParams.set('table', tableNo);
+  return url.href;
+}
+
+function renderGuidanceCodes(codeData, qrData) {
+  const codeText = document.getElementById('guidance-code-text');
+  const barcode = document.getElementById('guidance-barcode');
+  const qr = document.getElementById('guidance-qr');
+
+  codeText.textContent = `${codeData} / ${qrData}`;
+  barcode.innerHTML = '';
+  qr.innerHTML = '';
+
+  if (window.JsBarcode) {
+    JsBarcode(barcode, codeData, {
+      format: 'CODE128',
+      width: 2,
+      height: 58,
+      displayValue: true,
+      fontSize: 12,
+      margin: 4
+    });
+  } else {
+    barcode.textContent = codeData;
+  }
+
+  if (window.QRCode) {
+    new QRCode(qr, {
+      text: qrData,
+      width: 160,
+      height: 160,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    qr.textContent = qrData;
+  }
+}
+
 /* ========================================
    新規案内確定
 ======================================== */
 function execAnnai() {
+  if (!isAnnaiInputComplete()) {
+    updateAnnaiYesState();
+    return;
+  }
+
   // 選択卓
   const checked = [...document.querySelectorAll('input[name="taku"]:checked')]
                     .map(c => c.value);
+  const ninzuForOrderLimit = parseInt(document.getElementById('ninzu').value, 10);
+
+  if (checked.length && Number.isInteger(ninzuForOrderLimit) && ninzuForOrderLimit > 0) {
+    const guestCounts = JSON.parse(localStorage.getItem('tableGuestCounts') || '{}');
+    checked.forEach(tableNo => {
+      guestCounts[tableNo] = ninzuForOrderLimit;
+    });
+    localStorage.setItem('tableGuestCounts', JSON.stringify(guestCounts));
+    localStorage.setItem('currentOrderTable', checked[0]);
+  }
   const takuStr = checked.length ? checked.join('、') : '（未選択）';
 
   // 飲み放題プラン
   const planEl = document.querySelector('input[name="plan"]:checked');
+  const planCode = planEl ? [...document.querySelectorAll('input[name="plan"]')].indexOf(planEl) + 1 : 0;
+  const guidanceCodeData = buildGuidanceCodeData(checked, document.getElementById('ninzu').value, planCode);
+  renderGuidanceCodes(guidanceCodeData, buildOrderQrUrl(checked[0]));
   const plan   = planEl ? planEl.value + 'プラン' : '（未選択）';
 
   // 人数
@@ -717,6 +863,14 @@ function execAnnai() {
 function execIdou() {
   const from = document.getElementById('idou-from').value;
   const to   = document.getElementById('idou-to').value;
+  const guestCounts = JSON.parse(localStorage.getItem('tableGuestCounts') || '{}');
+
+  if (guestCounts[from]) {
+    guestCounts[to] = guestCounts[from];
+    delete guestCounts[from];
+    localStorage.setItem('tableGuestCounts', JSON.stringify(guestCounts));
+    localStorage.setItem('currentOrderTable', to);
+  }
 
   document.getElementById('idou-done-from').textContent = '移動する卓番号：' + from;
   document.getElementById('idou-done-to').textContent   = '移動先の卓番号：' + to;
@@ -730,6 +884,25 @@ function execIdou() {
 function execKoukan() {
   const a = document.getElementById('koukan-a').value;
   const b = document.getElementById('koukan-b').value;
+  const guestCounts = JSON.parse(localStorage.getItem('tableGuestCounts') || '{}');
+  const aCount = guestCounts[a];
+  const bCount = guestCounts[b];
+
+  if (aCount || bCount) {
+    if (bCount) {
+      guestCounts[a] = bCount;
+    } else {
+      delete guestCounts[a];
+    }
+
+    if (aCount) {
+      guestCounts[b] = aCount;
+    } else {
+      delete guestCounts[b];
+    }
+
+    localStorage.setItem('tableGuestCounts', JSON.stringify(guestCounts));
+  }
 
   document.getElementById('koukan-done-a').textContent = '交換する卓番号：' + a;
   document.getElementById('koukan-done-b').textContent = '交換する卓番号：' + b;
@@ -737,6 +910,7 @@ function execKoukan() {
   showScreen('s-koukan-done');
 }
 </script>
+<script src="/js/table-management-db.js"></script>
 
 </body>
 </html>

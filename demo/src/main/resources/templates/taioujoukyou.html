@@ -202,7 +202,10 @@ body {
 .btn-orange { background: #ef6c00; }
 .btn-light  { background: #8bc34a; }
 .btn-gray   { background: #777; }
+
 </style>
+<link rel="stylesheet" href="/css/employee-auth.css">
+<script src="/js/employee-auth.js"></script>
 </head>
 
 <body>
@@ -324,7 +327,10 @@ body {
    卓ボタン動作（taku.html準拠）
 ======================================== */
 function callTable(n)    { location.href = 'taioujoukyou.html'; }
-function orderTable(n)   { location.href = 'tyuumonn.html'; }
+function orderTable(n) {
+  localStorage.setItem('currentOrderTable', n);
+  location.href = 'tyuumonn.html?table=' + n;
+}
 function historyTable(n) { alert(n + '番卓 履歴'); }
 
 /* ========================================
@@ -355,22 +361,40 @@ function openDone(type) {
   document.getElementById('overlay-done').classList.add('active');
 }
 
-function finishStatus() {
+async function finishStatus() {
   const params = new URLSearchParams(location.search);
   const tableNo = params.get('table');
   if (tableNo && currentStatus) {
     const all = JSON.parse(localStorage.getItem('tableStatus') || '{}');
     all[tableNo] = resultMap[currentStatus];
     localStorage.setItem('tableStatus', JSON.stringify(all));
+    await fetch('/api/staff/tables/' + tableNo, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: toDbTableStatus(resultMap[currentStatus]) })
+    });
   }
   document.getElementById('overlay-done').classList.remove('active');
   window.location.href = 'taku.html';
+}
+
+function toDbTableStatus(status) {
+  const map = {
+    'なし': 'EMPTY',
+    '対応中': 'IN_USE',
+    '要応援': 'NEEDS_HELP',
+    '清掃応援': 'CLEANING_HELP',
+    '清掃中': 'CLEANING',
+    '使用中止': 'STOPPED'
+  };
+  return map[status] || 'IN_USE';
 }
 
 /* ========================================
    初期描画
 ======================================== */
 </script>
+<script src="/js/table-management-db.js"></script>
 
 </body>
 </html>

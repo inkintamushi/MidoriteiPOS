@@ -1,0 +1,340 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>&#30011;&#38754;&#20999;&#26367; - &#12415;&#12393;&#12426;&#20141;</title>
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #dcdcdc;
+  color: #1f1f1f;
+  font-family: sans-serif;
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+}
+
+.side {
+  background: #f7f7f7;
+  border-right: 1px solid #cfcfcf;
+  padding: 24px 18px;
+}
+
+.brand {
+  margin-bottom: 24px;
+  padding: 14px;
+  background: #003d00;
+  color: #fff;
+  text-align: center;
+}
+
+.logo-image {
+  width: 132px;
+  height: 132px;
+  display: block;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f7ead7;
+  border: 3px solid #f1c96b;
+}
+
+.logo-name {
+  font-size: 26px;
+  font-weight: bold;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.logo-sub {
+  margin-top: 6px;
+  color: #f1c96b;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0;
+}
+
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.mode-btn,
+.page-btn {
+  width: 100%;
+  border: 1px solid #b8b8b8;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mode-btn {
+  height: 44px;
+  font-weight: bold;
+}
+
+.mode-btn.active,
+.page-btn.active {
+  background: #003d00;
+  border-color: #003d00;
+  color: #fff;
+}
+
+.page-list {
+  display: none;
+  gap: 8px;
+}
+
+.page-list.active {
+  display: grid;
+}
+
+.page-btn {
+  min-height: 42px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.viewer {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-bar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid #cfcfcf;
+}
+
+.viewer-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.open-link {
+  color: #003d00;
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.frame-wrap {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+iframe {
+  width: 100%;
+  height: calc(100vh - 112px);
+  border: 0;
+  background: #dcdcdc;
+}
+
+@media (max-width: 820px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .side {
+    border-right: 0;
+    border-bottom: 1px solid #cfcfcf;
+  }
+
+  .page-list.active {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  iframe {
+    width: 100%;
+    max-width: none;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand" aria-label="&#12415;&#12393;&#12426;&#20141;">
+      <img class="logo-image" src="/images/midoritei-logo.png" alt="&#12415;&#12393;&#12426;&#20141; MIDORI-TEI">
+      <div class="logo-name">&#12415;&#12393;&#12426;&#20141;</div>
+      <div class="logo-sub">MIDORI TEI</div>
+    </div>
+
+    <div class="mode-tabs" role="tablist" aria-label="&#34920;&#31034;&#12377;&#12427;&#30011;&#38754;&#12398;&#31278;&#39006;">
+      <button class="mode-btn active" type="button" data-mode="customer">&#21033;&#29992;&#32773;&#20596;</button>
+      <button class="mode-btn" type="button" data-mode="staff">&#24467;&#26989;&#21729;&#20596;</button>
+    </div>
+
+    <div class="page-list active" id="customer-pages">
+      <button class="page-btn active" type="button" data-title="&#21033;&#29992;&#32773;&#20596; &#27880;&#25991;&#30011;&#38754;" data-url="/order">&#27880;&#25991;&#30011;&#38754;</button>
+      <button class="page-btn" type="button" data-title="&#21033;&#29992;&#32773;&#20596; &#27880;&#25991;&#23653;&#27508;" data-url="/order_history">&#27880;&#25991;&#23653;&#27508;</button>
+    </div>
+
+    <div class="page-list" id="staff-pages">
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#12525;&#12464;&#12452;&#12531;" data-url="/login.html">&#12525;&#12464;&#12452;&#12531;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#21331;&#36984;&#25246;" data-url="/taku.html">&#21331;&#36984;&#25246;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#27880;&#25991;" data-url="/tyuumonn.html">&#27880;&#25991;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#27880;&#25991;&#23653;&#27508;" data-url="/rireki.html">&#27880;&#25991;&#23653;&#27508;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#26410;&#37197;&#33203;" data-url="/mihaizen_rireki.html">&#26410;&#37197;&#33203;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#26696;&#20869;" data-url="/kyakuannnai.html">&#26696;&#20869;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#21830;&#21697;&#31649;&#29702;" data-url="/shouhinnkannri.html">&#21830;&#21697;&#31649;&#29702;</button>
+      <button class="page-btn" type="button" data-title="&#24467;&#26989;&#21729;&#20596; &#23550;&#24540;&#29366;&#27841;" data-url="/taioujoukyou.html">&#23550;&#24540;&#29366;&#27841;</button>
+    </div>
+  </aside>
+
+  <main class="viewer">
+    <div class="viewer-bar">
+      <div class="viewer-title" id="viewer-title">&#21033;&#29992;&#32773;&#20596; &#27880;&#25991;&#30011;&#38754;</div>
+      <a class="open-link" id="open-link" href="/order" target="_blank" rel="noopener">&#21029;&#30011;&#38754;&#12391;&#38283;&#12367;</a>
+    </div>
+
+    <div class="frame-wrap">
+      <iframe id="screen-frame" src="/order" title="&#36984;&#25246;&#20013;&#12398;&#30011;&#38754;"></iframe>
+    </div>
+  </main>
+</div>
+
+<script>
+const modeButtons = document.querySelectorAll(".mode-btn");
+const pageButtons = document.querySelectorAll(".page-btn");
+const pageLists = {
+  customer: document.getElementById("customer-pages"),
+  staff: document.getElementById("staff-pages")
+};
+const frame = document.getElementById("screen-frame");
+const title = document.getElementById("viewer-title");
+const openLink = document.getElementById("open-link");
+let lastFramePath = "";
+let watchTimer = null;
+
+function normalizePath(path) {
+  const pathOnly = path.split("?")[0].split("#")[0];
+  if (pathOnly === "/" || pathOnly === "/switch") return "/order";
+  if (pathOnly === "/order.html") return "/order";
+  if (pathOnly === "/order_history.html") return "/order_history";
+  return pathOnly;
+}
+
+function setActiveMode(mode) {
+  modeButtons.forEach(button => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+  });
+
+  Object.entries(pageLists).forEach(([key, list]) => {
+    list.classList.toggle("active", key === mode);
+  });
+}
+
+function updateSelectedMenu(button) {
+  const mode = button.closest("#customer-pages") ? "customer" : "staff";
+  setActiveMode(mode);
+
+  pageButtons.forEach(pageButton => {
+    pageButton.classList.toggle("active", pageButton === button);
+  });
+
+  title.textContent = button.dataset.title;
+  openLink.href = button.dataset.url;
+}
+
+function showPage(button) {
+  updateSelectedMenu(button);
+  frame.src = button.dataset.url;
+}
+
+function findButtonByPath(path) {
+  return Array.from(pageButtons).find(button => {
+    const buttonPath = normalizePath(new URL(button.dataset.url, location.origin).pathname);
+    return buttonPath === path;
+  });
+}
+
+function syncMenuWithFrame() {
+  let framePath;
+
+  try {
+    framePath = normalizePath(frame.contentWindow.location.pathname);
+  } catch (error) {
+    return;
+  }
+
+  if (framePath === lastFramePath) return;
+  lastFramePath = framePath;
+
+  const button = findButtonByPath(framePath);
+  if (button) {
+    updateSelectedMenu(button);
+  }
+}
+
+function watchFrameNavigation() {
+  if (watchTimer) {
+    clearTimeout(watchTimer);
+  }
+
+  let count = 0;
+  const tick = () => {
+    syncMenuWithFrame();
+    count += 1;
+
+    if (count < 20) {
+      watchTimer = setTimeout(tick, 100);
+    }
+  };
+
+  tick();
+}
+
+function bindFrameEvents() {
+  try {
+    const frameDocument = frame.contentDocument;
+    if (!frameDocument) return;
+
+    frameDocument.addEventListener("click", watchFrameNavigation, true);
+    frameDocument.addEventListener("submit", watchFrameNavigation, true);
+  } catch (error) {
+    return;
+  }
+}
+
+modeButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    const activeList = pageLists[button.dataset.mode];
+    showPage(activeList.querySelector(".page-btn"));
+  });
+});
+
+pageButtons.forEach(button => {
+  button.addEventListener("click", () => showPage(button));
+});
+
+frame.addEventListener("load", () => {
+  lastFramePath = "";
+  syncMenuWithFrame();
+  bindFrameEvents();
+});
+
+setInterval(syncMenuWithFrame, 300);
+</script>
+</body>
+</html>

@@ -1,20 +1,23 @@
 /* 全体 */
 body {
     margin: 0;
-    background: #dcdcdc;
+    background: #fff;
+    min-height: 100vh;
     font-family: sans-serif;
   }
   
   /* スマホ本体 */
   .phone {
-    width: 380px;
-    height: 820px;
-    margin: 40px auto;
+    width: 100%;
+    max-width: none;
+    min-height: 100vh;
+    height: auto;
+    margin: 0;
     background: #fff;
-    border-radius: 50px;
-    border: 5px solid #000;
+    border-radius: 0;
+    border: 0;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
   
   /* ヘッダー */
@@ -22,38 +25,28 @@ body {
     background: #003d00;
     color: #fff;
     text-align: center;
-    font-size: 36px;
-    padding: 40px 0;
+    font-size: clamp(24px, 7vw, 36px);
+    padding: clamp(18px, 5vw, 34px) 12px;
   
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }
   
   /* 中身 */
   .content {
-    height: calc(100% - 200px);
+    min-height: calc(100vh - 140px);
+    height: auto;
   }
   
   /* 下の黒いエリア */
   .bottom {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 120px;
-    background: #000;
+    display: none;
   }
   
   /* ホームボタン */
   .home {
-    position: absolute;
-    bottom: 35px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60px;
-    height: 60px;
-    border: 4px solid #fff;
-    border-radius: 50%;
+    display: none;
   }
   
