@@ -12,15 +12,23 @@ CREATE DATABASE IF NOT EXISTS midoritei
 
 ## 2. 接続設定
 
-`demo/src/main/resources/application.properties` は以下の環境変数を見ます。
+デフォルト起動は内蔵H2 DBを使うため、MySQLなしで動きます。
+MySQLを使う場合だけ、`mysql` プロファイルで起動します。
 
 ```powershell
 $env:MYSQL_URL="jdbc:mysql://localhost:3306/midoritei?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Tokyo&allowPublicKeyRetrieval=true&useSSL=false"
 $env:MYSQL_USER="root"
 $env:MYSQL_PASSWORD="your_password"
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=mysql
 ```
 
 未設定の場合は、ユーザー `root`、パスワード空、DB `midoritei` に接続します。
+
+MySQLを使わず単体起動する場合は、通常どおり起動します。
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
 
 ## 3. 初期データ
 
