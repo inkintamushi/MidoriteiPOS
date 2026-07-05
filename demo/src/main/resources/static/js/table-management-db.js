@@ -1,22 +1,26 @@
 (function() {
   const statusToDb = {
-    "なし": "EMPTY",
-    "対応中": "IN_USE",
-    "要対応": "NEEDS_HELP",
-    "未対応": "NEEDS_HELP",
-    "要応援": "NEEDS_HELP",
-    "清掃応援": "CLEANING_HELP",
-    "清掃中": "CLEANING",
-    "使用中止": "STOPPED"
+    "清掃未対応": "CLEANING_UNHANDLED",
+    "呼出未対応": "CALL_UNHANDLED",
+    "清掃要応援": "CLEANING_NEEDS_HELP",
+    "呼出要応援": "CALL_NEEDS_HELP",
+    "清掃対応中": "CLEANING_IN_PROGRESS",
+    "呼出対応中": "CALL_IN_PROGRESS",
+    "使用可能": "AVAILABLE",
+    "使用中止": "OUT_OF_SERVICE",
+    "使用中": "OCCUPIED"
   };
 
   const dbToButton = {
-    EMPTY: { text: "なし", cls: "light" },
-    IN_USE: { text: "対応中", cls: "green" },
-    NEEDS_HELP: { text: "要対応", cls: "orange" },
-    CLEANING_HELP: { text: "清掃応援", cls: "orange" },
-    CLEANING: { text: "清掃中", cls: "orange" },
-    STOPPED: { text: "使用中止", cls: "gray" }
+    CLEANING_UNHANDLED: { text: "清掃未対応", cls: "orange" },
+    CALL_UNHANDLED: { text: "呼出未対応", cls: "orange" },
+    CLEANING_NEEDS_HELP: { text: "清掃要応援", cls: "orange" },
+    CALL_NEEDS_HELP: { text: "呼出要応援", cls: "orange" },
+    CLEANING_IN_PROGRESS: { text: "清掃対応中", cls: "green" },
+    CALL_IN_PROGRESS: { text: "呼出対応中", cls: "green" },
+    AVAILABLE: { text: "使用可能", cls: "light" },
+    OUT_OF_SERVICE: { text: "使用中止", cls: "gray" },
+    OCCUPIED: { text: "使用中", cls: "green" }
   };
 
   async function loadTables() {
@@ -87,7 +91,7 @@
       const guestCount = parseInt(document.getElementById("ninzu")?.value, 10);
       if (checked.length && Number.isInteger(guestCount) && guestCount > 0) {
         for (const tableNo of checked) {
-          await updateTable(tableNo, { guestCount, status: "IN_USE" });
+          await updateTable(tableNo, { guestCount, status: "OCCUPIED" });
         }
       }
       originalExecAnnai();

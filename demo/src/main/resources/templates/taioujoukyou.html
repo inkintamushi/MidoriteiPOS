@@ -344,14 +344,16 @@ function showScreen(id) {
 /* ========================================
    完了モーダル
 ======================================== */
-const resultMap = {
-  '対応完了': 'なし',
-  '清掃完了': 'なし',
-  '要応援':   '要応援',
-  '対応中':   '対応中',
-  '清掃応援': '清掃応援',
-  '清掃中':   '清掃中',
-  '使用中止': '使用中止',
+// 対応完了/清掃完了はどちらも卓を「使用可能」表示に戻す(呼出対応後も使用中(9)へは
+// 戻さない、という既存の挙動をそのまま踏襲。使用中に戻すのは将来の改善対象)。
+const statusMap = {
+  '対応完了': 'AVAILABLE',
+  '要応援':   'CALL_NEEDS_HELP',
+  '対応中':   'CALL_IN_PROGRESS',
+  '清掃完了': 'AVAILABLE',
+  '清掃応援': 'CLEANING_NEEDS_HELP',
+  '清掃中':   'CLEANING_IN_PROGRESS',
+  '使用中止': 'OUT_OF_SERVICE',
 };
 
 let currentStatus = null;
@@ -366,28 +368,16 @@ async function finishStatus() {
   const tableNo = params.get('table');
   if (tableNo && currentStatus) {
     const all = JSON.parse(localStorage.getItem('tableStatus') || '{}');
-    all[tableNo] = resultMap[currentStatus];
+    all[tableNo] = currentStatus;
     localStorage.setItem('tableStatus', JSON.stringify(all));
     await fetch('/api/staff/tables/' + tableNo, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: toDbTableStatus(resultMap[currentStatus]) })
+      body: JSON.stringify({ status: statusMap[currentStatus] })
     });
   }
   document.getElementById('overlay-done').classList.remove('active');
   window.location.href = 'taku.html';
-}
-
-function toDbTableStatus(status) {
-  const map = {
-    'なし': 'EMPTY',
-    '対応中': 'IN_USE',
-    '要応援': 'NEEDS_HELP',
-    '清掃応援': 'CLEANING_HELP',
-    '清掃中': 'CLEANING',
-    '使用中止': 'STOPPED'
-  };
-  return map[status] || 'IN_USE';
 }
 
 /* ========================================
