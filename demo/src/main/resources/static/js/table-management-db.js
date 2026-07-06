@@ -85,19 +85,68 @@
     };
   }
 
+  let courses = [];
+
+  async function loadCourses() {
+    const response = await fetch("/api/courses");
+    if (!response.ok) return;
+    courses = await response.json();
+  }
+
   if (typeof window.execAnnai === "function") {
     const originalExecAnnai = window.execAnnai;
     window.execAnnai = async function() {
       const checked = [...document.querySelectorAll('input[name="taku"]:checked')].map(c => c.value);
       const guestCount = parseInt(document.getElementById("ninzu")?.value, 10);
+      const planEl = document.querySelector('input[name="plan"]:checked');
+      const course = planEl ? courses.find(c => c.name === planEl.value) : null;
       if (checked.length && Number.isInteger(guestCount) && guestCount > 0) {
         for (const tableNo of checked) {
-          await updateTable(tableNo, { guestCount, status: "OCCUPIED" });
+          await updateTable(tableNo, {
+            guestCount,
+            status: "OCCUPIED",
+            courseId: course ? course.id : null
+          });
         }
       }
       originalExecAnnai();
     };
   }
 
-  document.addEventListener("DOMContentLoaded", loadTables);
+  if (typeof window.execIdou === "function") {
+    const originalExecIdou = window.execIdou;
+    window.execIdou = async function() {
+      const from = document.getElementById("idou-from")?.value;
+      const to = document.getElementById("idou-to")?.value;
+      if (from && to) {
+        await fetch("/api/staff/tables/move", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fromTableNumber: Number(from), toTableNumber: Number(to) })
+        });
+      }
+      originalExecIdou();
+    };
+  }
+
+  if (typeof window.execKoukan === "function") {
+    const originalExecKoukan = window.execKoukan;
+    window.execKoukan = async function() {
+      const a = document.getElementById("koukan-a")?.value;
+      const b = document.getElementById("koukan-b")?.value;
+      if (a && b) {
+        await fetch("/api/staff/tables/swap", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tableNumberA: Number(a), tableNumberB: Number(b) })
+        });
+      }
+      originalExecKoukan();
+    };
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadTables();
+    loadCourses();
+  });
 })();

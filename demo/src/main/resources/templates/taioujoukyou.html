@@ -112,10 +112,11 @@ body {
 }
 .status-btn:active { opacity: .75; }
 
-/* 使用中止は1列目中央配置 */
-.status-btn.center {
-  grid-column: 2;
+.status-btn:disabled {
+  background: #bbb;
+  cursor: default;
 }
+.status-btn:disabled:active { opacity: 1; }
 
 /* ===================================================
    オーバーレイ（モーダル背景）
@@ -228,15 +229,16 @@ body {
   <div id="screen-status" class="screen active">
     <div class="content-area">
       <div class="status-grid">
-        <button class="status-btn" onclick="openDone('対応完了')">対応完了</button>
-        <button class="status-btn" onclick="openDone('要応援')">要応援</button>
-        <button class="status-btn" onclick="openDone('対応中')">対応中</button>
+        <button id="btn-taiou-kanryo" class="status-btn" onclick="openDone('対応完了')" disabled>対応完了</button>
+        <button id="btn-you-ouen" class="status-btn" onclick="openDone('要応援')" disabled>要応援</button>
+        <button id="btn-taiou-chu" class="status-btn" onclick="openDone('対応中')" disabled>対応中</button>
 
-        <button class="status-btn" onclick="openDone('清掃完了')">清掃完了</button>
-        <button class="status-btn" onclick="openDone('清掃応援')">清掃応援</button>
-        <button class="status-btn" onclick="openDone('清掃中')">清掃中</button>
+        <button id="btn-seisou-kanryo" class="status-btn" onclick="openDone('清掃完了')" disabled>清掃完了</button>
+        <button id="btn-seisou-ouen" class="status-btn" onclick="openDone('清掃応援')" disabled>清掃応援</button>
+        <button id="btn-seisou-chu" class="status-btn" onclick="openDone('清掃中')" disabled>清掃中</button>
 
-        <button class="status-btn center" onclick="openDone('使用中止')">使用中止</button>
+        <button id="btn-kaikei-taiou" class="status-btn" onclick="openDone('会計対応')" disabled>会計対応</button>
+        <button id="btn-shiyo-chushi" class="status-btn" onclick="openDone('使用中止')" disabled>使用中止</button>
       </div>
     </div>
   </div>
@@ -342,18 +344,32 @@ function showScreen(id) {
 }
 
 /* ========================================
-   完了モーダル
+   状態遷移表(状態遷移表_v1.xlsx)に基づく、現在の座席状況ごとの
+   有効なボタンと遷移先。'FINALIZE' は会計確定(finalize-payment)を意味する。
 ======================================== */
-// 対応完了/清掃完了はどちらも卓を「使用可能」表示に戻す(呼出対応後も使用中(9)へは
-// 戻さない、という既存の挙動をそのまま踏襲。使用中に戻すのは将来の改善対象)。
-const statusMap = {
-  '対応完了': 'AVAILABLE',
-  '要応援':   'CALL_NEEDS_HELP',
-  '対応中':   'CALL_IN_PROGRESS',
-  '清掃完了': 'AVAILABLE',
-  '清掃応援': 'CLEANING_NEEDS_HELP',
-  '清掃中':   'CLEANING_IN_PROGRESS',
-  '使用中止': 'OUT_OF_SERVICE',
+const TRANSITIONS = {
+  CLEANING_UNHANDLED:   { '清掃中': 'CLEANING_IN_PROGRESS', '清掃応援': 'CLEANING_NEEDS_HELP', '清掃完了': 'AVAILABLE', '使用中止': 'OUT_OF_SERVICE' },
+  CALL_UNHANDLED:       { '対応中': 'CALL_IN_PROGRESS', '要応援': 'CALL_NEEDS_HELP', '対応完了': 'OCCUPIED', '使用中止': 'OUT_OF_SERVICE' },
+  CLEANING_NEEDS_HELP:  { '清掃中': 'CLEANING_IN_PROGRESS', '清掃完了': 'AVAILABLE', '使用中止': 'OUT_OF_SERVICE' },
+  CALL_NEEDS_HELP:      { '対応中': 'CALL_IN_PROGRESS', '対応完了': 'OCCUPIED', '使用中止': 'OUT_OF_SERVICE' },
+  CLEANING_IN_PROGRESS: { '清掃応援': 'CLEANING_NEEDS_HELP', '清掃完了': 'AVAILABLE', '使用中止': 'OUT_OF_SERVICE' },
+  CALL_IN_PROGRESS:     { '要応援': 'CALL_NEEDS_HELP', '対応完了': 'OCCUPIED', '使用中止': 'OUT_OF_SERVICE' },
+  AVAILABLE:            { '使用中止': 'OUT_OF_SERVICE' },
+  OUT_OF_SERVICE:       { '対応完了': 'AVAILABLE', '清掃完了': 'AVAILABLE' },
+  // 使用中: 利用客側のシステムを介さず対応する場合の直接会計(会計対応)を含む
+  OCCUPIED:             { '対応中': 'CALL_IN_PROGRESS', '会計対応': 'FINALIZE', '使用中止': 'OUT_OF_SERVICE' },
+  PAYMENT_WAITING:      { '対応中': 'FINALIZE' },
+};
+
+const BUTTON_IDS = {
+  '対応完了': 'btn-taiou-kanryo',
+  '要応援':   'btn-you-ouen',
+  '対応中':   'btn-taiou-chu',
+  '清掃完了': 'btn-seisou-kanryo',
+  '清掃応援': 'btn-seisou-ouen',
+  '清掃中':   'btn-seisou-chu',
+  '会計対応': 'btn-kaikei-taiou',
+  '使用中止': 'btn-shiyo-chushi',
 };
 
 let currentStatus = null;
@@ -364,22 +380,31 @@ function openDone(type) {
   document.getElementById('overlay-done').classList.add('active');
 }
 
+/* 現在の座席状況で無効な遷移のボタンをdisabledにする */
+function applyTransitionGuard() {
+  const allowed = TRANSITIONS[currentTableStatus] || {};
+  Object.entries(BUTTON_IDS).forEach(([label, id]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !(label in allowed);
+  });
+}
+
 async function finishStatus() {
   const params = new URLSearchParams(location.search);
   const tableNo = params.get('table');
-  if (tableNo && currentStatus) {
+  const target = (TRANSITIONS[currentTableStatus] || {})[currentStatus];
+  if (tableNo && target) {
     const all = JSON.parse(localStorage.getItem('tableStatus') || '{}');
     all[tableNo] = currentStatus;
     localStorage.setItem('tableStatus', JSON.stringify(all));
 
-    // 状態遷移表: 会計対応待ちの卓は「対応中」で会計確定(→清掃未対応)に進む
-    if (currentStatus === '対応中' && currentTableStatus === 'PAYMENT_WAITING') {
+    if (target === 'FINALIZE') {
       await fetch('/api/staff/tables/' + tableNo + '/finalize-payment', { method: 'PUT' });
     } else {
       await fetch('/api/staff/tables/' + tableNo, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: statusMap[currentStatus] })
+        body: JSON.stringify({ status: target })
       });
     }
   }
@@ -388,7 +413,7 @@ async function finishStatus() {
 }
 
 /* ========================================
-   現在の卓状態を取得（会計対応待ちの判定に使用）
+   現在の卓状態を取得し、有効なボタンのみ操作可能にする
 ======================================== */
 async function loadCurrentTableStatus() {
   const params = new URLSearchParams(location.search);
@@ -399,6 +424,7 @@ async function loadCurrentTableStatus() {
   const tables = await response.json();
   const match = tables.find(t => String(t.table_number) === String(tableNo));
   currentTableStatus = match ? match.status : null;
+  applyTransitionGuard();
 }
 loadCurrentTableStatus();
 

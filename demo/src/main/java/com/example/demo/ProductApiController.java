@@ -1,11 +1,14 @@
 package com.example.demo;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -64,12 +67,20 @@ public class ProductApiController {
 
 	@PostMapping("/api/admin/products")
 	public Map<String, Object> addProduct(@RequestBody ProductRequest request) {
-		jdbcTemplate.update("""
-				INSERT INTO products (store_id, category_id, name, price, image_path, sold_out, active)
-				VALUES (?, ?, ?, ?, ?, FALSE, TRUE)
-				""", DEFAULT_STORE_ID, resolveCategoryId(request.category()), request.name(), request.price(),
-				defaultImage(request.imagePath()));
-		return Map.of("ok", true);
+		GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
+		jdbcTemplate.update(connection -> {
+			PreparedStatement ps = connection.prepareStatement("""
+					INSERT INTO products (store_id, category_id, name, price, image_path, sold_out, active)
+					VALUES (?, ?, ?, ?, ?, FALSE, TRUE)
+					""", Statement.RETURN_GENERATED_KEYS);
+			ps.setLong(1, DEFAULT_STORE_ID);
+			ps.setLong(2, resolveCategoryId(request.category()));
+			ps.setString(3, request.name());
+			ps.setInt(4, request.price());
+			ps.setString(5, defaultImage(request.imagePath()));
+			return ps;
+		}, keyHolder);
+		return Map.of("ok", true, "id", keyHolder.getKey().longValue());
 	}
 
 	@PutMapping("/api/admin/products/{id}")
@@ -96,6 +107,40 @@ public class ProductApiController {
 	@DeleteMapping("/api/admin/products/{id}")
 	public Map<String, Object> deleteProduct(@PathVariable long id) {
 		jdbcTemplate.update("UPDATE products SET active = FALSE WHERE id = ?", id);
+		return Map.of("ok", true);
+	}
+
+	@GetMapping("/api/courses")
+	public List<Map<String, Object>> courses() {
+		return jdbcTemplate.queryForList("""
+				SELECT id, name, price, duration, course_type FROM courses ORDER BY course_type
+				""");
+	}
+
+	@GetMapping("/api/admin/courses/{courseId}/products")
+	public List<Map<String, Object>> courseProducts(@PathVariable long courseId) {
+		return jdbcTemplate.queryForList("""
+				SELECT p.id, p.name, c.code AS category, c.name AS category_name,
+				       EXISTS(SELECT 1 FROM course_products cp
+				              WHERE cp.course_id = ? AND cp.product_id = p.id) AS included
+				FROM products p
+				JOIN categories c ON c.id = p.category_id
+				WHERE p.active = TRUE AND c.active = TRUE AND p.store_id = ?
+				ORDER BY c.display_order, p.id
+				""", courseId, DEFAULT_STORE_ID);
+	}
+
+	@PostMapping("/api/admin/courses/{courseId}/products/{productId}")
+	public Map<String, Object> addCourseProduct(@PathVariable long courseId, @PathVariable long productId) {
+		jdbcTemplate.update(
+				"INSERT IGNORE INTO course_products (course_id, product_id) VALUES (?, ?)", courseId, productId);
+		return Map.of("ok", true);
+	}
+
+	@DeleteMapping("/api/admin/courses/{courseId}/products/{productId}")
+	public Map<String, Object> removeCourseProduct(@PathVariable long courseId, @PathVariable long productId) {
+		jdbcTemplate.update(
+				"DELETE FROM course_products WHERE course_id = ? AND product_id = ?", courseId, productId);
 		return Map.of("ok", true);
 	}
 

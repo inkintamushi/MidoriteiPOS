@@ -563,6 +563,68 @@ body {
     </div>
   </div>
 
+  <!-- ============================================================
+       画面9: コース管理画面（食べ放題／飲み放題）
+  ============================================================ -->
+  <div id="screen-course-list" class="screen">
+    <div class="content-area">
+      <div class="grid" id="course-list-grid"></div>
+      <button class="back-btn" onclick="showScreen('screen-list')">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面10: コース管理選択（商品追加／商品削除）
+  ============================================================ -->
+  <div id="overlay-course-action" class="overlay">
+    <div class="confirm-card">
+      <div class="confirm-title" id="course-action-title">コース管理</div>
+      <div class="confirm-body">
+        <p id="course-action-name"></p>
+      </div>
+      <div class="edit-modal-buttons" style="display:flex; flex-direction:column; gap:14px; margin-top:20px; align-items:center;">
+        <button class="modal-btn" style="width:180px;" onclick="goCourseCategory('add')">商品追加</button>
+        <button class="modal-btn" style="width:180px;" onclick="goCourseCategory('remove')">商品削除</button>
+        <button class="modal-btn" style="width:180px;" onclick="closeCourseAction()">戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面11: コースカテゴリ選択画面
+  ============================================================ -->
+  <div id="screen-course-category" class="screen">
+    <div class="content-area">
+      <div class="grid" id="course-category-grid"></div>
+      <button class="back-btn" onclick="backToCourseAction()">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面12: コース商品選択画面
+  ============================================================ -->
+  <div id="screen-course-products" class="screen">
+    <div class="content-area">
+      <div class="grid" id="course-product-grid"></div>
+      <button class="back-btn" onclick="showScreen('screen-course-category')">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面13: コース管理完了（オーバーレイ）
+  ============================================================ -->
+  <div id="overlay-course-done" class="overlay">
+    <div class="done-card">
+      <div class="done-title">コース管理完了</div>
+      <div class="done-body">
+        <p id="course-done-course"></p>
+        <p id="course-done-product"></p>
+        <p id="course-done-action"></p>
+      </div>
+      <button class="ok-btn" onclick="finishCourseAction()">ok</button>
+    </div>
+  </div>
+
   <!-- ===== 共通フッター ===== -->
   <div class="bottom"></div>
   <div class="home"></div>

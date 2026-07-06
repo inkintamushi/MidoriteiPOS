@@ -575,7 +575,7 @@ body {
           <button class="barcode-btn">一次元バーコード</button>
           <div class="print-row">
             <input type="number" value="4" min="1">
-            <button class="print-btn" onclick="showScreen('s-top')">印刷</button>
+            <button class="print-btn" onclick="printGuidanceCode()">印刷</button>
           </div>
         </div>
       </div>
@@ -819,6 +819,10 @@ function renderGuidanceCodes(codeData, qrData) {
 /* ========================================
    新規案内確定
 ======================================== */
+let guidanceQueue = [];
+let guidanceNinzu = 0;
+let guidancePlanCode = 0;
+
 function execAnnai() {
   if (!isAnnaiInputComplete()) {
     updateAnnaiYesState();
@@ -843,7 +847,11 @@ function execAnnai() {
   // 飲み放題プラン
   const planEl = document.querySelector('input[name="plan"]:checked');
   const planCode = planEl ? [...document.querySelectorAll('input[name="plan"]')].indexOf(planEl) + 1 : 0;
-  const guidanceCodeData = buildGuidanceCodeData(checked, document.getElementById('ninzu').value, planCode);
+  guidanceNinzu = document.getElementById('ninzu').value;
+  guidancePlanCode = planCode;
+  // 印刷後、残りの選択卓があれば続けてQR/バーコードを表示するためのキュー
+  guidanceQueue = checked.slice(1);
+  const guidanceCodeData = buildGuidanceCodeData([checked[0]], guidanceNinzu, planCode);
   renderGuidanceCodes(guidanceCodeData, buildOrderQrUrl(checked[0]));
   const plan   = planEl ? planEl.value + 'プラン' : '（未選択）';
 
@@ -855,6 +863,20 @@ function execAnnai() {
   document.getElementById('done-ninzu').textContent = '人数：'      + ninzu;
 
   showScreen('s-annai-done');
+}
+
+/* ========================================
+   QR/バーコード印刷（残りの選択卓があれば続けて表示）
+======================================== */
+function printGuidanceCode() {
+  if (guidanceQueue.length > 0) {
+    const nextTable = guidanceQueue.shift();
+    const codeData = buildGuidanceCodeData([nextTable], guidanceNinzu, guidancePlanCode);
+    renderGuidanceCodes(codeData, buildOrderQrUrl(nextTable));
+    showScreen('s-qr');
+  } else {
+    showScreen('s-top');
+  }
 }
 
 /* ========================================

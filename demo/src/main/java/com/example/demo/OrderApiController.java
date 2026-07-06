@@ -310,7 +310,12 @@ public class OrderApiController {
 		}
 
 		if (seatStatus != null && seatStatus.equals(SEAT_STATUS_CODES.get("OCCUPIED"))) {
-			ensureActiveTableSession(tableId, request.guestCount());
+			long sessionId = ensureActiveTableSession(tableId, request.guestCount());
+			if (request.courseId() != null) {
+				Long groupId = jdbcTemplate.queryForObject(
+						"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
+				jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", request.courseId(), groupId);
+			}
 		} else if (request.guestCount() != null) {
 			List<Long> activeGroupIds = jdbcTemplate.queryForList("""
 					SELECT customer_group_id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
@@ -321,6 +326,62 @@ public class OrderApiController {
 			}
 		}
 		return Map.of("ok", true);
+	}
+
+	@PutMapping("/api/staff/tables/move")
+	@Transactional
+	public Map<String, Object> moveTable(@RequestBody MoveRequest request) {
+		long fromId = ensureTableId(request.fromTableNumber());
+		long toId = ensureTableId(request.toTableNumber());
+
+		Long sessionId = activeSessionId(fromId);
+		if (sessionId == null) {
+			return Map.of("ok", false, "message", "移動元の卓に利用客がいません。");
+		}
+		if (activeSessionId(toId) != null) {
+			return Map.of("ok", false, "message", "移動先の卓は空いていません。");
+		}
+
+		int fromStatus = jdbcTemplate.queryForObject(
+				"SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, fromId);
+
+		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", toId, sessionId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", fromStatus, toId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("AVAILABLE"), fromId);
+
+		return Map.of("ok", true);
+	}
+
+	@PutMapping("/api/staff/tables/swap")
+	@Transactional
+	public Map<String, Object> swapTables(@RequestBody SwapRequest request) {
+		long aId = ensureTableId(request.tableNumberA());
+		long bId = ensureTableId(request.tableNumberB());
+
+		Long aSessionId = activeSessionId(aId);
+		Long bSessionId = activeSessionId(bId);
+		if (aSessionId == null || bSessionId == null) {
+			return Map.of("ok", false, "message", "交換する両方の卓が利用中である必要があります。");
+		}
+
+		int aStatus = jdbcTemplate.queryForObject("SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, aId);
+		int bStatus = jdbcTemplate.queryForObject("SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, bId);
+
+		// 一時的に重複しないよう、いったん退避用のtable_idを経由せず直接入れ替える
+		// (aとbは別レコードなので、更新順序による衝突は発生しない)
+		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", bId, aSessionId);
+		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", aId, bSessionId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", bStatus, aId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", aStatus, bId);
+
+		return Map.of("ok", true);
+	}
+
+	private Long activeSessionId(long tableId) {
+		List<Long> ids = jdbcTemplate.queryForList(
+				"SELECT id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL", Long.class, tableId);
+		return ids.isEmpty() ? null : ids.get(0);
 	}
 
 	@PostMapping("/api/staff/tables/{tableNumber}/qr")
@@ -441,9 +502,15 @@ public class OrderApiController {
 	public record PayRequest(int tableNumber) {
 	}
 
-	public record TableRequest(Integer guestCount, String status) {
+	public record TableRequest(Integer guestCount, String status, Long courseId) {
 	}
 
 	public record QuantityRequest(Integer quantity) {
+	}
+
+	public record MoveRequest(int fromTableNumber, int toTableNumber) {
+	}
+
+	public record SwapRequest(int tableNumberA, int tableNumberB) {
 	}
 }

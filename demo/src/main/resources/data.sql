@@ -59,6 +59,13 @@ ON DUPLICATE KEY UPDATE
   sold_out = VALUES(sold_out),
   active = VALUES(active);
 
+INSERT INTO courses (id, name, price, duration, course_type) VALUES
+(1, 'ノーマル', 1980, '90分', 1),
+(2, 'プレミアム', 2980, '120分', 2)
+ON DUPLICATE KEY UPDATE
+  price = VALUES(price),
+  duration = VALUES(duration);
+
 -- seat_status: old EMPTY -> 7 (available), old STOPPED -> 8 (out-of-service)
 INSERT INTO dining_tables (store_id, table_number, seat_status) VALUES
 (1, 1, 7),
