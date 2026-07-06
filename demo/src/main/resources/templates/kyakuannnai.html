@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>客案内 - みどり亭</title>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -13,16 +14,18 @@ body {
   font-family: sans-serif;
 }
 
-/* ===== スマホ枠（default_nav.html 共通） ===== */
+/* ===== スマホ本体 → 実機画面いっぱいに表示 ===== */
 .phone {
-  width: 380px;
-  height: 820px;
-  margin: 40px auto;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
   background: #fff;
-  border-radius: 50px;
-  border: 5px solid #000;
+  border-radius: 0;
+  border: 0;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
 /* ===== ヘッダー（共通） ===== */
@@ -30,10 +33,9 @@ body {
   background: #003d00;
   color: #fff;
   text-align: center;
-  font-size: 36px;
-  padding: 40px 0;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  font-size: clamp(24px, 7vw, 36px);
+  padding: clamp(18px, 5vw, 34px) 12px;
+  border-radius: 0;
 }
 
 /* ===== タブ（共通） ===== */
@@ -53,36 +55,20 @@ body {
 .tab:last-child { border-right: none; }
 .tab.active-tab { background: #003d00; color: #fff; font-weight: bold; }
 
-/* ===== 下の黒いエリア（共通） ===== */
-.bottom {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 120px;
-  background: #000;
-  border-bottom-left-radius: 44px;
-  border-bottom-right-radius: 44px;
-}
-
-/* ===== ホームボタン（共通） ===== */
+/* ===== 下の黒いエリア・ホームボタン（実機では不要な演出のため非表示） ===== */
+.bottom,
 .home {
-  position: absolute;
-  bottom: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 60px;
-  border: 4px solid #fff;
-  border-radius: 50%;
+  display: none;
 }
 
 /* ===== 画面切替 ===== */
-.screen { display: none; }
-.screen.active { display: block; }
+.screen { display: none; flex-direction: column; min-height: 0; flex: 1; }
+.screen.active { display: flex; }
 
 /* ===== コンテンツエリア ===== */
 .content-area {
-  height: calc(820px - 116px - 46px - 120px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0;
   position: relative;
@@ -101,7 +87,7 @@ body {
 }
 
 .card-box {
-  width: 310px;
+  width: min(310px, 88vw);
   border: 2px solid #000;
   border-radius: 20px;
   padding: 20px 18px;
@@ -260,7 +246,7 @@ body {
 }
 
 .qr-card {
-  width: 310px;
+  width: min(310px, 88vw);
   border: 2px solid #000;
   border-radius: 16px;
   padding: 18px 16px;
@@ -283,7 +269,7 @@ body {
 }
 
 .barcode-box {
-  width: 260px;
+  width: min(260px, 100%);
   min-height: 94px;
   margin: 0 auto 14px;
   padding: 8px;
@@ -451,8 +437,8 @@ body {
 
   <!-- ===== 共通タブ ===== -->
   <div class="tabs">
-    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
-    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='taku.html'">ホーム</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">配膳登録</div>
     <div class="tab active-tab">案内</div>
     <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
   </div>
@@ -470,7 +456,7 @@ body {
           </div>
           <div class="annai-btns">
             <div class="annai-row">
-              <button class="green-btn" onclick="showScreen('s-annai-input')">新規案内</button>
+              <button class="green-btn" onclick="goAnnaiInput()">新規案内</button>
               <button class="green-btn" onclick="showScreen('s-idou-select')">座席移動</button>
             </div>
             <button class="green-btn back" onclick="location.href='taku.html'">戻る</button>
@@ -493,18 +479,10 @@ body {
             <tr>
               <th></th>
               <th>卓番号</th>
-              <th>空席状況</th>
-              <th>案内</th>
-              <th>飲み放題</th>
+              <th>座席状況</th>
             </tr>
           </thead>
-          <tbody>
-            <tr><td><input type="checkbox" name="taku" value="1"></td><td>1</td><td>空席</td><td></td><td></td></tr>
-            <tr><td><input type="checkbox" name="taku" value="3"></td><td>3</td><td>空席</td><td></td><td></td></tr>
-            <tr><td><input type="checkbox" name="taku" value="5"></td><td>5</td><td>空席</td><td></td><td></td></tr>
-            <tr><td><input type="checkbox" name="taku" value="7"></td><td>7</td><td>空席</td><td></td><td></td></tr>
-            <tr><td><input type="checkbox" name="taku" value="9"></td><td>9</td><td>空席</td><td></td><td></td></tr>
-          </tbody>
+          <tbody id="annai-table-body"></tbody>
         </table>
 
         <!-- 飲み放題プラン -->
@@ -525,7 +503,7 @@ body {
         </div>
 
         <div class="input-btns">
-          <button class="green-btn" onclick="showScreen('s-annai-input')">No</button>
+          <button class="green-btn" onclick="showScreen('s-top')">No</button>
           <button id="annai-yes" class="green-btn" onclick="execAnnai()" disabled>Yes</button>
         </div>
       </div>
@@ -734,12 +712,41 @@ document.addEventListener('DOMContentLoaded', function() {
       this._wasChecked = this.checked;
     });
   });
-  document.querySelectorAll('input[name="taku"], input[name="plan"]').forEach(function(input) {
+  document.querySelectorAll('input[name="plan"]').forEach(function(input) {
     input.addEventListener('change', updateAnnaiYesState);
   });
   document.getElementById('ninzu').addEventListener('input', updateAnnaiYesState);
   updateAnnaiYesState();
 });
+
+/* ========================================
+   案内入力画面: 使用可能な卓のみをDBから取得して一覧表示する
+======================================== */
+async function renderAnnaiTableOptions() {
+  const tbody = document.getElementById('annai-table-body');
+  const response = await fetch('/api/staff/tables');
+  if (!response.ok) return;
+  const tables = await response.json();
+  tbody.innerHTML = '';
+  tables.filter(t => t.status === 'AVAILABLE').forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" name="taku" value="${t.table_number}"></td>
+      <td>${t.table_number}</td>
+      <td>使用可能</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input[name="taku"]').forEach(input => {
+    input.addEventListener('change', updateAnnaiYesState);
+  });
+  updateAnnaiYesState();
+}
+
+function goAnnaiInput() {
+  renderAnnaiTableOptions();
+  showScreen('s-annai-input');
+}
 
 function toggleRadio(radio) {
   if (radio._wasChecked) {

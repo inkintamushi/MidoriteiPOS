@@ -2,24 +2,29 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ログイン画面</title>
   <style>
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
       background: #dcdcdc;
       font-family: sans-serif;
     }
 
-    /* スマホ本体 */
+    /* スマホ本体 → 実機画面いっぱいに表示 */
     .phone {
-      width: 380px;
-      height: 820px;
-      margin: 40px auto;
+      width: 100%;
+      min-height: 100vh;
+      margin: 0;
       background: #fff;
-      border-radius: 50px;
-      border: 5px solid #000;
+      border-radius: 0;
+      border: 0;
       position: relative;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      overflow: visible;
     }
 
     /* ヘッダー */
@@ -27,21 +32,15 @@
       background: #003d00;
       color: #fff;
       text-align: center;
-      font-size: 36px;
-      padding: 40px 0;
-
-      /* 上だけ丸い */
-      border-top-left-radius: 20px;
-      border-top-right-radius: 20px;
-
-      /* 下は真っ直ぐ */
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0;
+      font-size: clamp(24px, 7vw, 36px);
+      padding: clamp(18px, 5vw, 34px) 12px;
+      border-radius: 0;
     }
 
     /* フォーム */
     .content {
-      padding: 40px 24px;
+      flex: 1;
+      padding: clamp(20px, 6vw, 40px) clamp(16px, 6vw, 24px);
     }
 
     label {
@@ -72,48 +71,33 @@
       cursor: pointer;
     }
 
-    /* 下の黒いエリア */
-    .bottom {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 120px;
-      background: #000;
-      border-bottom-left-radius: 44px;
-      border-bottom-right-radius: 44px;
-    }
-
-
-  
-    /* ホームボタン */
+    /* 下の黒いエリア・ホームボタン（実機では不要な演出のため非表示） */
+    .bottom,
     .home {
-      position: absolute;
-      bottom: 35px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 60px;
-      height: 60px;
-      border: 4px solid #fff;
-      border-radius: 50%;
+      display: none;
     }
 
     /* エラーダイアログ */
     .modal {
       display: none;
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       background: rgba(0,0,0,0.2);
+      z-index: 20;
     }
 
     .modal-box {
-      width: 280px;
+      width: min(280px, 85vw);
       background: #fff;
       border: 3px solid #000;
       border-radius: 30px;
-      margin: 160px auto;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       padding: 24px 16px;
       text-align: center;
     }

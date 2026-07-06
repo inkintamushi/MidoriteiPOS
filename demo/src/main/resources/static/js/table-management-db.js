@@ -28,20 +28,28 @@
     const response = await fetch("/api/staff/tables");
     if (!response.ok) return;
     const tables = await response.json();
-    tables.forEach(table => updateTableButton(table.table_number, table.status));
+    renderTableList(tables);
   }
 
-  function updateTableButton(tableNumber, status) {
-    const state = dbToButton[status];
-    if (!state) return;
-    document.querySelectorAll("#screen-table tbody tr").forEach(tr => {
-      if (tr.cells[0]?.textContent == tableNumber) {
-        const btn = tr.cells[2]?.querySelector("button");
-        if (btn) {
-          btn.textContent = state.text;
-          btn.className = "btn " + state.cls;
-        }
-      }
+  // taku.html: 卓一覧を丸ごと描画する。注文・注文履歴・QRボタンは
+  // 「使用されている卓番号のみに付随する」(機能統合版_ホーム) ため、
+  // 客が着席中(guest_count > 0)の卓にのみ表示する。
+  function renderTableList(tables) {
+    const tbody = document.getElementById("table-list");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    tables.forEach(table => {
+      const state = dbToButton[table.status] || { text: table.status, cls: "gray" };
+      const inUse = table.status !== "AVAILABLE" && table.status !== "OUT_OF_SERVICE";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${table.table_number}</td>
+        <td><button class="btn ${state.cls}" onclick="callTable(${table.table_number})">${state.text}</button></td>
+        <td>${inUse ? `<button class="btn green" onclick="orderTable(${table.table_number})">注文</button>` : ""}</td>
+        <td>${inUse ? `<button class="btn green" onclick="historyTable(${table.table_number})">履歴</button>` : ""}</td>
+        <td>${inUse ? `<button class="btn green qr-btn" onclick="reissueQr(${table.table_number})">再発行</button>` : ""}</td>
+      `;
+      tbody.appendChild(tr);
     });
   }
 

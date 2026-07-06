@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>未配膳注文履歴 - みどり亭</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11,16 +12,16 @@ body {
   font-family: sans-serif;
 }
 
-/* ===== スマホ枠（default_nav.html 共通） ===== */
+/* ===== スマホ本体 → 実機画面いっぱいに表示 ===== */
 .phone {
-  width: 380px;
-  height: 820px;
-  margin: 40px auto;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
   background: #fff;
-  border-radius: 50px;
-  border: 5px solid #000;
+  border-radius: 0;
+  border: 0;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
@@ -30,10 +31,9 @@ body {
   background: #003d00;
   color: #fff;
   text-align: center;
-  font-size: 36px;
-  padding: 40px 0;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  font-size: clamp(24px, 7vw, 36px);
+  padding: clamp(18px, 5vw, 34px) 12px;
+  border-radius: 0;
 }
 
 /* ===== タブ（共通） ===== */
@@ -58,34 +58,16 @@ body {
   font-weight: bold;
 }
 
-/* ===== 下の黒いエリア（共通） ===== */
-.bottom {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 120px;
-  background: #000;
-  border-bottom-left-radius: 44px;
-  border-bottom-right-radius: 44px;
-}
-
-/* ===== ホームボタン（共通） ===== */
+/* ===== 下の黒いエリア・ホームボタン（実機では不要な演出のため非表示） ===== */
+.bottom,
 .home {
-  position: absolute;
-  bottom: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 60px;
-  border: 4px solid #fff;
-  border-radius: 50%;
+  display: none;
 }
 
 /* ===== コンテンツエリア ===== */
 .content-area {
   flex: 1 1 auto;
   min-height: 0;
-  margin-bottom: 120px;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -171,7 +153,7 @@ body {
 
 /* ===== モーダルカード共通 ===== */
 .modal-card {
-  width: 300px;
+  width: min(300px, 88vw);
   background: #fff;
   border: 3px solid #000;
   border-radius: 40px;
@@ -269,8 +251,8 @@ body {
 
   <!-- ===== 共通タブ（default_nav.html） ===== -->
   <div class="tabs">
-    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
-    <div class="tab active-tab">未配膳</div>
+    <div class="tab" onclick="location.href='taku.html'">ホーム</div>
+    <div class="tab active-tab">配膳登録</div>
     <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
     <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
   </div>

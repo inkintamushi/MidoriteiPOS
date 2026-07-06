@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>みどり亭</title>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
@@ -13,16 +14,18 @@ body {
   font-family: sans-serif;
 }
 
-/* ===== スマホ枠（default_nav.html 共通） ===== */
+/* ===== スマホ本体 → 実機画面いっぱいに表示 ===== */
 .phone {
-  width: 380px;
-  height: 820px;
-  margin: 40px auto;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
   background: #fff;
-  border-radius: 50px;
-  border: 5px solid #000;
+  border-radius: 0;
+  border: 0;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
 /* ===== ヘッダー（default_nav.html 共通） ===== */
@@ -30,10 +33,9 @@ body {
   background: #003d00;
   color: #fff;
   text-align: center;
-  font-size: 36px;
-  padding: 40px 0;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  font-size: clamp(24px, 7vw, 36px);
+  padding: clamp(18px, 5vw, 34px) 12px;
+  border-radius: 0;
 }
 
 /* ===== タブ（default_nav.html 共通） ===== */
@@ -64,16 +66,17 @@ body {
 }
 
 /* ===== コンテンツエリア ===== */
-/* header(116px) + tabs(~46px) + bottom(120px) */
 .content-area {
-  height: calc(820px - 116px - 46px - 120px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 10px;
 }
 
 /* ===== 画面切替 ===== */
-.screen { display: none; }
-.screen.active { display: block; }
+.screen { display: none; flex-direction: column; min-height: 0; flex: 1; }
+.screen.active { display: flex; }
 
 /* ===== テーブル ===== */
 table {
@@ -129,7 +132,7 @@ th {
 }
 
 .qr-modal-card {
-  width: 300px;
+  width: min(300px, 88vw);
   background: #fff;
   border: 3px solid #000;
   border-radius: 28px;
@@ -176,27 +179,10 @@ th {
   gap: 14px;
 }
 
-/* ===== 下の黒いエリア（default_nav.html 共通） ===== */
-.bottom {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 120px;
-  background: #000;
-  border-bottom-left-radius: 44px;
-  border-bottom-right-radius: 44px;
-}
-
-/* ===== ホームボタン（default_nav.html 共通） ===== */
+/* ===== 下の黒いエリア・ホームボタン（実機では不要な演出のため非表示） ===== */
+.bottom,
 .home {
-  position: absolute;
-  bottom: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 60px;
-  border: 4px solid #fff;
-  border-radius: 50%;
+  display: none;
 }
 
 </style>
@@ -213,8 +199,8 @@ th {
 
   <!-- ===== 共通タブ ===== -->
   <div class="tabs">
-    <div class="tab active-tab">卓選択</div>
-    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab active-tab">ホーム</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">配膳登録</div>
     <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
     <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
   </div>
@@ -225,67 +211,16 @@ th {
   <div id="screen-table" class="screen active">
     <div class="content-area">
       <table>
-        <tr>
-          <th>卓番号</th>
-          <th>空席状況</th>
-          <th>呼出状況</th>
-          <th>注文</th>
-          <th>履歴</th>
-          <th>QR</th>
-        </tr>
-        <tr>
-          <td>1</td><td>食事中</td>
-          <td><button class="btn green"  onclick="callTable(1)">対応中</button></td>
-          <td><button class="btn green"  onclick="orderTable(1)">注文</button></td>
-          <td><button class="btn green"  onclick="historyTable(1)">履歴</button></td>
-          <td><button class="btn green qr-btn" onclick="reissueQr(1)">再発行</button></td>
-        </tr>
-        <tr>
-          <td>2</td><td>食事中</td>
-          <td><button class="btn orange" onclick="callTable(2)">要対応</button></td>
-          <td><button class="btn green"  onclick="orderTable(2)">注文</button></td>
-          <td><button class="btn green"  onclick="historyTable(2)">履歴</button></td>
-          <td><button class="btn green qr-btn" onclick="reissueQr(2)">再発行</button></td>
-        </tr>
-        <tr>
-          <td>3</td><td>食事中</td>
-          <td><button class="btn orange" onclick="callTable(3)">未対応</button></td>
-          <td><button class="btn green"  onclick="orderTable(3)">注文</button></td>
-          <td><button class="btn green"  onclick="historyTable(3)">履歴</button></td>
-          <td><button class="btn green qr-btn" onclick="reissueQr(3)">再発行</button></td>
-        </tr>
-        <tr>
-          <td>4</td><td>空席</td>
-          <td><button class="btn light" onclick="callTable(4)">なし</button></td>
-          <td></td><td></td><td></td>
-        </tr>
-        <tr>
-          <td>5</td><td>空席</td>
-          <td><button class="btn gray" onclick="callTable(5)">使用中止</button></td>
-          <td></td><td></td><td></td>
-        </tr>
-        <tr>
-          <td>6</td><td>準備中</td>
-          <td><button class="btn orange" onclick="callTable(6)">要対応</button></td>
-          <td></td><td></td><td></td>
-        </tr>
-        <tr>
-          <td>7</td><td>空席</td>
-          <td><button class="btn light" onclick="callTable(7)">なし</button></td>
-          <td></td><td></td><td></td>
-        </tr>
-        <tr>
-          <td>8</td><td>空席</td>
-          <td><button class="btn gray" onclick="callTable(8)">使用中止</button></td>
-          <td></td><td></td><td></td>
-        </tr>
-        <tr>
-          <td>9</td><td>食事中</td>
-          <td><button class="btn green"  onclick="callTable(9)">対応中</button></td>
-          <td><button class="btn green"  onclick="orderTable(9)">注文</button></td>
-          <td><button class="btn green"  onclick="historyTable(9)">履歴</button></td>
-          <td><button class="btn green qr-btn" onclick="reissueQr(9)">再発行</button></td>
-        </tr>
+        <thead>
+          <tr>
+            <th>卓番号</th>
+            <th>座席状況</th>
+            <th>注文</th>
+            <th>注文履歴</th>
+            <th>QR</th>
+          </tr>
+        </thead>
+        <tbody id="table-list"></tbody>
       </table>
     </div>
   </div>
@@ -385,37 +320,6 @@ function reissueQr(tableNo) {
 function closeQrModal() {
   document.getElementById('qr-modal').classList.remove('active');
 }
-
-// 追記
-const statusMap = {
-  'なし':     { text: 'なし',     cls: 'light' },
-  '対応中':   { text: '対応中',   cls: 'green' },
-  '要応援':   { text: '要応援',   cls: 'orange' },
-  '清掃応援': { text: '清掃応援', cls: 'orange' },
-  '清掃中':   { text: '清掃中',   cls: 'orange' },
-  '使用中止': { text: '使用中止', cls: 'gray' },
-};
-
-window.addEventListener('load', () => {
-  document.querySelector('.tab').classList.add('active-tab');
-  const saved = localStorage.getItem('tableStatus');
-  if (!saved) return;
-  const all = JSON.parse(saved); // { "2": "要応援", ... }
-  Object.entries(all).forEach(([tableNo, status]) => {
-    const s = statusMap[status];
-    if (!s) return;
-    // 卓番号が一致するボタンを探して更新
-    document.querySelectorAll('#screen-table tbody tr').forEach(tr => {
-      if (tr.cells[0]?.textContent == tableNo) {
-        const btn = tr.cells[2]?.querySelector('button');
-        if (btn) {
-          btn.textContent = s.text;
-          btn.className = 'btn ' + s.cls;
-        }
-      }
-    });
-  });
-});
 </script>
 <script src="/js/table-management-db.js"></script>
 
