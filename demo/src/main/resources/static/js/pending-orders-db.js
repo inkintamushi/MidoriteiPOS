@@ -30,10 +30,17 @@
 
   window.executeDeliver = async function() {
     if (!current) return;
-    await fetch(`/api/staff/order-items/${current.id}/deliver`, { method: "PUT" });
+    const qty = Math.max(1, Math.min(
+      Number(document.getElementById("confirm-qty").value) || current.remaining_qty,
+      current.remaining_qty));
+    await fetch(`/api/staff/order-items/${current.id}/deliver`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity: qty })
+    });
     document.getElementById("done-table").textContent = "卓番号：" + current.table_no;
     document.getElementById("done-item").textContent = "商品名：" + current.item;
-    document.getElementById("done-qty").textContent = "個数：" + current.remaining_qty;
+    document.getElementById("done-qty").textContent = "個数：" + qty;
     showOverlay("overlay-done");
   };
 

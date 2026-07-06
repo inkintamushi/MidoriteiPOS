@@ -85,11 +85,12 @@ CREATE TABLE IF NOT EXISTS dining_tables (
   -- 1 cleaning-unhandled(清掃未対応), 2 call-unhandled(呼出未対応),
   -- 3 cleaning-needs-help(清掃要応援), 4 call-needs-help(呼出要応援),
   -- 5 cleaning-in-progress(清掃対応中), 6 call-in-progress(呼出対応中),
-  -- 7 available(使用可能), 8 out-of-service(使用中止), 9 occupied(使用中)
+  -- 7 available(使用可能), 8 out-of-service(使用中止), 9 occupied(使用中),
+  -- 10 payment-waiting(会計対応待ち)
   seat_status  TINYINT UNSIGNED NOT NULL DEFAULT 7,
   CONSTRAINT fk_dining_tables_store FOREIGN KEY (store_id) REFERENCES stores(id),
   CONSTRAINT uq_dining_tables_store_number UNIQUE (store_id, table_number),
-  CONSTRAINT chk_dining_tables_seat_status CHECK (seat_status BETWEEN 1 AND 9)
+  CONSTRAINT chk_dining_tables_seat_status CHECK (seat_status BETWEEN 1 AND 10)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================================

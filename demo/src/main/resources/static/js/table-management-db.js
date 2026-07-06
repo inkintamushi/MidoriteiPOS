@@ -20,7 +20,8 @@
     CALL_IN_PROGRESS: { text: "呼出対応中", cls: "green" },
     AVAILABLE: { text: "使用可能", cls: "light" },
     OUT_OF_SERVICE: { text: "使用中止", cls: "gray" },
-    OCCUPIED: { text: "使用中", cls: "green" }
+    OCCUPIED: { text: "使用中", cls: "green" },
+    PAYMENT_WAITING: { text: "会計対応待ち", cls: "orange" }
   };
 
   async function loadTables() {

@@ -107,16 +107,23 @@
     document.getElementById("complete-modal").classList.add("active");
   }
 
-  async function pay() {
+  async function checkoutCall() {
     const table = tableNumber();
-    const result = await loadJson("/api/orders/pay", {
+    const result = await loadJson("/api/orders/checkout-call", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tableNumber: table })
     });
     document.getElementById("payment-total").innerText = `合計：${Number(result.totalPrice || pageTotal).toLocaleString()}円`;
-    pageTotal = 0;
-    document.getElementById("total-area").innerText = "合計：0円";
+  }
+
+  async function callStaff() {
+    const table = tableNumber();
+    await loadJson("/api/orders/call-staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tableNumber: table })
+    });
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -132,8 +139,13 @@
     document.getElementById("yes").onclick = submitOrder;
     document.getElementById("payment-yes").onclick = async () => {
       document.getElementById("payment-modal").classList.remove("active");
-      await pay();
+      await checkoutCall();
       document.getElementById("payment-complete-modal").classList.add("active");
+    };
+    document.getElementById("staff-call-yes").onclick = async () => {
+      document.getElementById("staff-call-modal").classList.remove("active");
+      await callStaff();
+      document.getElementById("staff-call-complete-modal").classList.add("active");
     };
     document.getElementById("history-yes").onclick = () => {
       location.href = "/order_history";

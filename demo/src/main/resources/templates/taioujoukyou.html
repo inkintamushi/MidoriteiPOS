@@ -357,6 +357,7 @@ const statusMap = {
 };
 
 let currentStatus = null;
+let currentTableStatus = null;
 
 function openDone(type) {
   currentStatus = type;
@@ -370,15 +371,36 @@ async function finishStatus() {
     const all = JSON.parse(localStorage.getItem('tableStatus') || '{}');
     all[tableNo] = currentStatus;
     localStorage.setItem('tableStatus', JSON.stringify(all));
-    await fetch('/api/staff/tables/' + tableNo, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: statusMap[currentStatus] })
-    });
+
+    // 状態遷移表: 会計対応待ちの卓は「対応中」で会計確定(→清掃未対応)に進む
+    if (currentStatus === '対応中' && currentTableStatus === 'PAYMENT_WAITING') {
+      await fetch('/api/staff/tables/' + tableNo + '/finalize-payment', { method: 'PUT' });
+    } else {
+      await fetch('/api/staff/tables/' + tableNo, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: statusMap[currentStatus] })
+      });
+    }
   }
   document.getElementById('overlay-done').classList.remove('active');
   window.location.href = 'taku.html';
 }
+
+/* ========================================
+   現在の卓状態を取得（会計対応待ちの判定に使用）
+======================================== */
+async function loadCurrentTableStatus() {
+  const params = new URLSearchParams(location.search);
+  const tableNo = params.get('table');
+  if (!tableNo) return;
+  const response = await fetch('/api/staff/tables');
+  if (!response.ok) return;
+  const tables = await response.json();
+  const match = tables.find(t => String(t.table_number) === String(tableNo));
+  currentTableStatus = match ? match.status : null;
+}
+loadCurrentTableStatus();
 
 /* ========================================
    初期描画

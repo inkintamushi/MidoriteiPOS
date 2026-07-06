@@ -30,7 +30,8 @@ public class OrderApiController {
 	// 1 cleaning-unhandled(清掃未対応), 2 call-unhandled(呼出未対応),
 	// 3 cleaning-needs-help(清掃要応援), 4 call-needs-help(呼出要応援),
 	// 5 cleaning-in-progress(清掃対応中), 6 call-in-progress(呼出対応中),
-	// 7 available(使用可能), 8 out-of-service(使用中止), 9 occupied(使用中)
+	// 7 available(使用可能), 8 out-of-service(使用中止), 9 occupied(使用中),
+	// 10 payment-waiting(会計対応待ち)
 	private static final Map<String, Integer> SEAT_STATUS_CODES = Map.ofEntries(
 			Map.entry("CLEANING_UNHANDLED", 1),
 			Map.entry("CALL_UNHANDLED", 2),
@@ -40,7 +41,8 @@ public class OrderApiController {
 			Map.entry("CALL_IN_PROGRESS", 6),
 			Map.entry("AVAILABLE", 7),
 			Map.entry("OUT_OF_SERVICE", 8),
-			Map.entry("OCCUPIED", 9));
+			Map.entry("OCCUPIED", 9),
+			Map.entry("PAYMENT_WAITING", 10));
 
 	private static final Map<Integer, String> SEAT_STATUS_LABELS = SEAT_STATUS_CODES.entrySet().stream()
 			.collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
@@ -105,7 +107,7 @@ public class OrderApiController {
 				JOIN table_sessions ts ON ts.id = o.table_session_id
 				JOIN dining_tables t ON t.id = ts.table_id
 				JOIN order_items i ON i.order_id = o.id
-				WHERE t.store_id = ? AND t.table_number = ?
+				WHERE t.store_id = ? AND t.table_number = ? AND ts.ended_at IS NULL
 				ORDER BY o.ordered_at DESC, i.id
 				""", DEFAULT_STORE_ID, tableNumber);
 	}
@@ -129,44 +131,110 @@ public class OrderApiController {
 	}
 
 	@PutMapping("/api/staff/order-items/{itemId}/deliver")
-	public Map<String, Object> deliver(@PathVariable long itemId) {
-		jdbcTemplate.update("""
-				UPDATE order_items
-				SET delivered_quantity = quantity - canceled_quantity,
-				    status = 'DELIVERED',
-				    completed_at = CURRENT_TIMESTAMP
-				WHERE id = ?
-				""", itemId);
+	@Transactional
+	public Map<String, Object> deliver(@PathVariable long itemId, @RequestBody(required = false) QuantityRequest request) {
+		Map<String, Object> item = orderItem(itemId);
+		int quantity = ((Number) item.get("quantity")).intValue();
+		int delivered = ((Number) item.get("delivered_quantity")).intValue();
+		int canceled = ((Number) item.get("canceled_quantity")).intValue();
+		int remaining = quantity - delivered - canceled;
+		int requested = (request == null || request.quantity() == null) ? remaining : request.quantity();
+		int applied = clamp(requested, remaining);
+		int newDelivered = delivered + applied;
+
+		if (newDelivered + canceled >= quantity) {
+			jdbcTemplate.update("""
+					UPDATE order_items
+					SET delivered_quantity = ?, status = 'DELIVERED', completed_at = CURRENT_TIMESTAMP
+					WHERE id = ?
+					""", newDelivered, itemId);
+		} else {
+			jdbcTemplate.update("""
+					UPDATE order_items
+					SET delivered_quantity = ?, status = 'ORDERED', completed_at = NULL
+					WHERE id = ?
+					""", newDelivered, itemId);
+		}
 		return Map.of("ok", true);
 	}
 
 	@PutMapping("/api/staff/order-items/{itemId}/undeliver")
-	public Map<String, Object> undeliver(@PathVariable long itemId) {
+	@Transactional
+	public Map<String, Object> undeliver(@PathVariable long itemId, @RequestBody(required = false) QuantityRequest request) {
+		Map<String, Object> item = orderItem(itemId);
+		int delivered = ((Number) item.get("delivered_quantity")).intValue();
+		int requested = (request == null || request.quantity() == null) ? delivered : request.quantity();
+		int applied = clamp(requested, delivered);
+		int newDelivered = delivered - applied;
+
 		jdbcTemplate.update("""
 				UPDATE order_items
-				SET delivered_quantity = 0,
-				    status = 'ORDERED',
-				    completed_at = NULL
+				SET delivered_quantity = ?, status = 'ORDERED', completed_at = NULL
 				WHERE id = ?
-				""", itemId);
+				""", newDelivered, itemId);
 		return Map.of("ok", true);
 	}
 
 	@PutMapping("/api/staff/order-items/{itemId}/cancel")
-	public Map<String, Object> cancel(@PathVariable long itemId) {
+	@Transactional
+	public Map<String, Object> cancel(@PathVariable long itemId, @RequestBody(required = false) QuantityRequest request) {
+		Map<String, Object> item = orderItem(itemId);
+		int quantity = ((Number) item.get("quantity")).intValue();
+		int delivered = ((Number) item.get("delivered_quantity")).intValue();
+		int canceled = ((Number) item.get("canceled_quantity")).intValue();
+		int remaining = quantity - delivered - canceled;
+		int requested = (request == null || request.quantity() == null) ? remaining : request.quantity();
+		int applied = clamp(requested, remaining);
+		int newCanceled = canceled + applied;
+
 		jdbcTemplate.update("""
 				UPDATE order_items
-				SET canceled_quantity = quantity - delivered_quantity,
-				    status = 'CANCELED'
+				SET canceled_quantity = ?, status = ?
 				WHERE id = ?
-				""", itemId);
+				""", newCanceled, (newCanceled + delivered >= quantity) ? "CANCELED" : "ORDERED", itemId);
 		return Map.of("ok", true);
 	}
 
-	@PostMapping("/api/orders/pay")
-	@Transactional
-	public Map<String, Object> pay(@RequestBody PayRequest request) {
+	private Map<String, Object> orderItem(long itemId) {
+		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+				SELECT quantity, delivered_quantity, canceled_quantity FROM order_items WHERE id = ?
+				""", itemId);
+		if (rows.isEmpty()) {
+			throw new IllegalArgumentException("注文明細が見つかりません: " + itemId);
+		}
+		return rows.get(0);
+	}
+
+	private int clamp(int requested, int max) {
+		return Math.max(0, Math.min(requested, max));
+	}
+
+	@PostMapping("/api/orders/checkout-call")
+	public Map<String, Object> checkoutCall(@RequestBody PayRequest request) {
 		Long tableId = findTableId(request.tableNumber());
+		if (tableId == null) {
+			return Map.of("ok", true, "totalPrice", 0);
+		}
+		Integer total = currentSessionTotal(tableId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("PAYMENT_WAITING"), tableId);
+		return Map.of("ok", true, "totalPrice", total);
+	}
+
+	@PostMapping("/api/orders/call-staff")
+	public Map<String, Object> callStaff(@RequestBody PayRequest request) {
+		Long tableId = findTableId(request.tableNumber());
+		if (tableId != null) {
+			jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+					SEAT_STATUS_CODES.get("CALL_UNHANDLED"), tableId);
+		}
+		return Map.of("ok", true);
+	}
+
+	@PutMapping("/api/staff/tables/{tableNumber}/finalize-payment")
+	@Transactional
+	public Map<String, Object> finalizePayment(@PathVariable int tableNumber) {
+		Long tableId = findTableId(tableNumber);
 		if (tableId == null) {
 			return Map.of("ok", true, "totalPrice", 0);
 		}
@@ -181,22 +249,36 @@ public class OrderApiController {
 		}
 		long sessionId = ((Number) sessions.get(0).get("id")).longValue();
 		long groupId = ((Number) sessions.get(0).get("customer_group_id")).longValue();
-
-		Integer total = jdbcTemplate.queryForObject("""
-				SELECT COALESCE(SUM(oi.unit_price * (oi.quantity - oi.canceled_quantity)), 0)
-				FROM order_items oi
-				JOIN orders o ON o.id = oi.order_id
-				WHERE o.table_session_id = ?
-				""", Integer.class, sessionId);
+		Integer total = sessionTotal(sessionId);
 
 		jdbcTemplate.update("UPDATE table_sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?", sessionId);
 		jdbcTemplate.update("""
 				UPDATE customer_groups SET billing_status = 2, left_at = CURRENT_TIMESTAMP WHERE id = ?
 				""", groupId);
+		// 状態遷移表: 会計時、自動で「清掃未対応」になる
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
-				SEAT_STATUS_CODES.get("AVAILABLE"), tableId);
+				SEAT_STATUS_CODES.get("CLEANING_UNHANDLED"), tableId);
 
 		return Map.of("ok", true, "totalPrice", total);
+	}
+
+	private Integer sessionTotal(long sessionId) {
+		return jdbcTemplate.queryForObject("""
+				SELECT COALESCE(SUM(oi.unit_price * (oi.quantity - oi.canceled_quantity)), 0)
+				FROM order_items oi
+				JOIN orders o ON o.id = oi.order_id
+				WHERE o.table_session_id = ?
+				""", Integer.class, sessionId);
+	}
+
+	private Integer currentSessionTotal(long tableId) {
+		List<Long> sessionIds = jdbcTemplate.queryForList("""
+				SELECT id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
+				""", Long.class, tableId);
+		if (sessionIds.isEmpty()) {
+			return 0;
+		}
+		return sessionTotal(sessionIds.get(0));
 	}
 
 	@GetMapping("/api/staff/tables")
@@ -360,5 +442,8 @@ public class OrderApiController {
 	}
 
 	public record TableRequest(Integer guestCount, String status) {
+	}
+
+	public record QuantityRequest(Integer quantity) {
 	}
 }
