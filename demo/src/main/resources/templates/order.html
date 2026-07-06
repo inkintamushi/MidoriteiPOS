@@ -10,8 +10,9 @@
 <style>
 .category-bar {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   gap: 8px;
   background: #c96a00;
   padding: 10px;
@@ -24,6 +25,8 @@
   border-radius: 20px;
   font-size: 12px;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tab.active {
