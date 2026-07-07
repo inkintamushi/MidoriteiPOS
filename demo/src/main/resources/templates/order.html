@@ -135,12 +135,14 @@
 /* モーダル */
 .modal {
   display: none;
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 10;
   background: rgba(255,255,255,0.2);
   justify-content: center;
   align-items: center;
+  padding: 18px;
+  box-sizing: border-box;
 }
 
 .modal.active {
@@ -150,6 +152,8 @@
 .modal-box {
   width: 300px;
   min-height: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-sizing: border-box;
   background: #fff;
   border: 4px solid #777;
@@ -331,6 +335,7 @@ body {
   border: 0;
   border-radius: 0;
   overflow: visible;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .header {
@@ -367,10 +372,19 @@ body {
   overflow: visible;
 }
 
-#total-area,
-.menu-bar {
+#total-area {
   position: static;
   width: 100%;
+}
+
+.menu-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  z-index: 5;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
 </style>
 </head>
@@ -397,7 +411,7 @@ body {
 <div class="info-bar">
   <span id="table-number" class="table-number">卓番号：未選択</span>
   <label class="sold-out-toggle"><input type="checkbox" id="hide-sold-out" checked>品切れを表示しない</label>
-  <span>残り時間：01:55</span>
+  <span id="remaining-time" class="remaining-time" style="display:none;"></span>
 </div>
 
 <div class="product-list">
@@ -601,218 +615,6 @@ body {
 
 </div>
 
-<script>
-
-// ✅ タブ切り替え（フィルター）
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", function() {
-
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    this.classList.add("active");
-
-    const filter = this.dataset.filter;
-
-    document.querySelectorAll(".card").forEach(card => {
-      if (filter === "all" || card.dataset.category === filter) {
-        card.style.display = "block";
-      } else {
-        card.style.display = "none";
-      }
-    });
-  });
-});
-
-// ✅ 注文モーダル
-const modal = document.getElementById("modal");
-const modalName = document.getElementById("modal-name");
-const modalImg = document.getElementById("modal-img");
-const qtyInput = document.getElementById("qty");
-const completeModal = document.getElementById("complete-modal");
-const completeImg = document.getElementById("complete-img");
-const completeName = document.getElementById("complete-name");
-const completeQty = document.getElementById("complete-qty");
-const paymentModal = document.getElementById("payment-modal");
-const paymentTotal = document.getElementById("payment-total");
-const paymentCompleteModal = document.getElementById("payment-complete-modal");
-const staffCallModal = document.getElementById("staff-call-modal");
-const staffCallCompleteModal = document.getElementById("staff-call-complete-modal");
-const historyModal = document.getElementById("history-modal");
-const totalArea = document.getElementById("total-area");
-const tableNumber = document.getElementById("table-number");
-const qtyMinus = document.getElementById("qty-minus");
-const qtyPlus = document.getElementById("qty-plus");
-const DEFAULT_ORDER_QTY_MAX = 30;
-const ORDER_QTY_PER_GUEST = 3;
-
-function getCurrentOrderTable() {
-  const tableFromUrl = new URLSearchParams(location.search).get("table");
-
-  if (tableFromUrl) {
-    localStorage.setItem("currentOrderTable", tableFromUrl);
-    return tableFromUrl;
-  }
-
-  return localStorage.getItem("currentOrderTable");
-}
-
-function getOrderQtyMax() {
-  const tableNo = getCurrentOrderTable();
-  const guestCounts = JSON.parse(localStorage.getItem("tableGuestCounts") || "{}");
-  const guestCount = parseInt(guestCounts[tableNo], 10);
-
-  if (Number.isInteger(guestCount) && guestCount > 0) {
-    return guestCount * ORDER_QTY_PER_GUEST;
-  }
-
-  return DEFAULT_ORDER_QTY_MAX;
-}
-
-let ORDER_QTY_MAX = getOrderQtyMax();
-qtyInput.max = ORDER_QTY_MAX;
-const currentOrderTable = getCurrentOrderTable();
-tableNumber.textContent = currentOrderTable ? `卓番号：${currentOrderTable}` : "卓番号：未選択";
-let currentCard;
-let totalPrice = 0;
-let orderHistory = JSON.parse(localStorage.getItem("orderHistory") || "[]");
-
-function normalizeQty(value) {
-  const qty = parseInt(value, 10);
-
-  if (!Number.isInteger(qty) || qty < 1) {
-    return 1;
-  }
-
-  return Math.min(qty, ORDER_QTY_MAX);
-}
-
-function changeQty(amount) {
-  qtyInput.value = normalizeQty(normalizeQty(qtyInput.value) + amount);
-}
-
-document.querySelectorAll(".order-btn").forEach(btn => {
-  btn.onclick = function() {
-    const card = this.closest(".card");
-    const name = card.querySelector(".name").innerText;
-    const image = card.querySelector("img");
-
-    currentCard = card;
-    ORDER_QTY_MAX = getOrderQtyMax();
-    qtyInput.max = ORDER_QTY_MAX;
-    modalName.innerText = name;
-    modalImg.src = image.src;
-    modalImg.alt = name;
-    qtyInput.value = 1;
-    modal.classList.add("active");
-  };
-});
-
-document.getElementById("no").onclick = () => modal.classList.remove("active");
-
-qtyInput.addEventListener("input", () => {
-  const qty = parseInt(qtyInput.value, 10);
-  if (Number.isInteger(qty) && qty > ORDER_QTY_MAX) {
-    qtyInput.value = ORDER_QTY_MAX;
-  }
-});
-
-qtyInput.addEventListener("blur", () => {
-  qtyInput.value = normalizeQty(qtyInput.value);
-});
-
-qtyMinus.onclick = () => changeQty(-1);
-qtyPlus.onclick = () => changeQty(1);
-
-document.getElementById("yes").onclick = () => {
-  const qty = normalizeQty(qtyInput.value);
-  qtyInput.value = qty;
-
-  totalPrice += parseInt(currentCard.dataset.price, 10) * qty;
-  totalArea.innerText = `合計：${totalPrice.toLocaleString()}円`;
-
-  const itemName = modalName.innerText;
-  const unitPrice = parseInt(currentCard.dataset.price, 10);
-  const itemPrice = unitPrice * qty;
-  const existingItem = orderHistory.find(item => {
-    const existingUnitPrice = Number(item.unitPrice ?? item.price);
-    return item.name === itemName && existingUnitPrice === unitPrice;
-  });
-
-  if (existingItem) {
-    existingItem.unitPrice = unitPrice;
-    existingItem.qty += qty;
-    existingItem.price = unitPrice * existingItem.qty;
-  } else {
-    orderHistory.push({
-      name: itemName,
-      qty: qty,
-      unitPrice: unitPrice,
-      price: itemPrice
-    });
-  }
-
-  localStorage.setItem("orderHistory", JSON.stringify(orderHistory));
-
-  modal.classList.remove("active");
-  completeName.innerText = modalName.innerText;
-  completeQty.innerText = `個数：${qty}`;
-  completeImg.src = modalImg.src;
-  completeImg.alt = modalName.innerText;
-  completeModal.classList.add("active");
-};
-
-document.getElementById("complete-ok").onclick = () => {
-  completeModal.classList.remove("active");
-};
-
-// ✅ メニュー
-document.getElementById("account").onclick = () => {
-  paymentTotal.innerText = `会計：${totalPrice.toLocaleString()}円`;
-  paymentModal.classList.add("active");
-};
-
-document.getElementById("payment-no").onclick = () => {
-  paymentModal.classList.remove("active");
-};
-
-document.getElementById("payment-yes").onclick = () => {
-  paymentModal.classList.remove("active");
-  paymentCompleteModal.classList.add("active");
-};
-
-document.getElementById("payment-ok").onclick = () => {
-  paymentCompleteModal.classList.remove("active");
-};
-
-document.getElementById("call").onclick = () => {
-  staffCallModal.classList.add("active");
-};
-
-document.getElementById("staff-call-no").onclick = () => {
-  staffCallModal.classList.remove("active");
-};
-
-document.getElementById("staff-call-yes").onclick = () => {
-  staffCallModal.classList.remove("active");
-  staffCallCompleteModal.classList.add("active");
-};
-
-document.getElementById("staff-call-ok").onclick = () => {
-  staffCallCompleteModal.classList.remove("active");
-};
-
-document.getElementById("history").onclick = () => {
-  historyModal.classList.add("active");
-};
-
-document.getElementById("history-no").onclick = () => {
-  historyModal.classList.remove("active");
-};
-
-document.getElementById("history-yes").onclick = () => {
-  location.href = "order_history.html";
-};
-
-</script>
 <script src="/js/customer-order-db.js"></script>
 
 </body>

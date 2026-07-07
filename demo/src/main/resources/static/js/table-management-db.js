@@ -61,37 +61,42 @@
     });
   }
 
+  // Fetches the table's current, server-validated qr token, minting one only
+  // if the active session doesn't already have one. Re-displaying must not
+  // replace an existing token, or a customer's already-scanned QR would break.
   async function issueQr(tableNumber) {
     const response = await fetch(`/api/staff/tables/${tableNumber}/qr`, { method: "POST" });
     if (!response.ok) throw new Error("QR発行に失敗しました。");
     return response.json();
   }
+  window.issueQr = issueQr;
 
-  if (typeof window.reissueQr === "function") {
-    window.reissueQr = async function(tableNo) {
-      const result = await issueQr(tableNo);
-      const qrUrl = result.orderUrl;
-      const qrBox = document.getElementById("qr-code-box");
-      const text = document.getElementById("qr-modal-text");
+  // Always wins over any placeholder defined inline in taku.html/tyuumonn.html
+  // (previously this only replaced the placeholder if one already existed,
+  // and the placeholders built a URL with no token at all).
+  window.reissueQr = async function(tableNo) {
+    const result = await issueQr(tableNo);
+    const qrUrl = result.orderUrl;
+    const qrBox = document.getElementById("qr-code-box");
+    const text = document.getElementById("qr-modal-text");
 
-      localStorage.setItem("currentOrderTable", tableNo);
-      text.textContent = `卓番号：${tableNo} / ${qrUrl}`;
-      qrBox.innerHTML = "";
+    localStorage.setItem("currentOrderTable", tableNo);
+    text.textContent = `卓番号：${tableNo} / ${qrUrl}`;
+    qrBox.innerHTML = "";
 
-      if (window.QRCode) {
-        new QRCode(qrBox, {
-          text: qrUrl,
-          width: 160,
-          height: 160,
-          correctLevel: QRCode.CorrectLevel.M
-        });
-      } else {
-        qrBox.textContent = qrUrl;
-      }
+    if (window.QRCode) {
+      new QRCode(qrBox, {
+        text: qrUrl,
+        width: 160,
+        height: 160,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      qrBox.textContent = qrUrl;
+    }
 
-      document.getElementById("qr-modal").classList.add("active");
-    };
-  }
+    document.getElementById("qr-modal").classList.add("active");
+  };
 
   let courses = [];
 
