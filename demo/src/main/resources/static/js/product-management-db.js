@@ -1,8 +1,17 @@
 (function() {
   let categories = [];
   let products = [];
+  let courses = [];
   let selectedCategory = null;
   let selectedProduct = null;
+  let selectedCourse = null;
+  let selectedCourseAction = null; // 'add' | 'remove'
+  let selectedCourseCategory = null;
+  let courseProducts = [];
+
+  function isPlanCategory(code) {
+    return code === "nomi" || code === "tabehoudai";
+  }
 
   async function json(url, options) {
     const response = await fetch(url, options);
@@ -13,6 +22,7 @@
   async function loadData() {
     categories = await json("/api/categories");
     products = await json("/api/products");
+    courses = await json("/api/courses");
     renderCategories();
     populateCategorySelect();
   }
@@ -25,7 +35,7 @@
       button.className = "btn";
       button.type = "button";
       button.textContent = category.name;
-      button.onclick = () => goCategory(category.code);
+      button.onclick = isPlanCategory(category.code) ? () => goCourseList() : () => goCategory(category.code);
       grid.appendChild(button);
     });
     const add = document.createElement("button");
@@ -107,9 +117,15 @@
       return;
     }
 
-    document.getElementById("done-name").textContent = "商品名：" + selectedProduct.name;
-    document.getElementById("done-line1").textContent = del ? "商品削除" : soldout ? "商品売切" : `変更後：${price}円`;
-    document.getElementById("done-line2").textContent = "を完了いたしました。";
+    document.getElementById("done-name").textContent = "";
+    if (del) {
+      document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} を削除しました。`;
+    } else if (soldout) {
+      document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} の売り切れ状態を更新しました`;
+    } else {
+      document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} を${price}円に更新しました。`;
+    }
+    document.getElementById("done-line2").textContent = "";
     await loadData();
     renderProducts();
     showOverlay("overlay-done");
@@ -119,16 +135,27 @@
     const name = document.getElementById("new-name").value.trim();
     const price = Number(document.getElementById("new-price").value.trim());
     const category = document.getElementById("new-category").value;
+    const nomihoudai = document.getElementById("new-nomihoudai")?.value || "なし";
     if (!name || !price || !category) return;
-    await json("/api/admin/products", {
+    const result = await json("/api/admin/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, price, category })
     });
+
+    // 飲み放題区分で選択されたコースに、追加した商品を対象商品として登録する
+    const courseNames = nomihoudai === "なし" ? [] : nomihoudai.split("、");
+    for (const courseName of courseNames) {
+      const course = courses.find(c => c.name === courseName);
+      if (course) {
+        await json(`/api/admin/courses/${course.id}/products/${result.id}`, { method: "POST" });
+      }
+    }
+
     document.getElementById("add-done-name").textContent = "商品名：" + name;
     document.getElementById("add-done-price").textContent = "商品価格：" + price + "円";
     document.getElementById("add-done-category").textContent = "カテゴリー：" + categories.find(c => c.code === category)?.name;
-    document.getElementById("add-done-nomihoudai").textContent = "";
+    document.getElementById("add-done-nomihoudai").textContent = courseNames.length ? "飲み放題：" + nomihoudai : "";
     await loadData();
     showOverlay("overlay-add-done");
   };
@@ -144,6 +171,105 @@
     document.getElementById("category-done-name").textContent = "カテゴリ名：　" + name;
     await loadData();
     showOverlay("overlay-category-add-done");
+  };
+
+  /* ========================================
+     コース管理（食べ放題／飲み放題の対象商品管理）
+  ======================================== */
+  window.goCourseList = function() {
+    const grid = document.getElementById("course-list-grid");
+    grid.innerHTML = "";
+    courses.forEach(course => {
+      const button = document.createElement("button");
+      button.className = "btn";
+      button.type = "button";
+      button.textContent = course.name;
+      button.onclick = () => openCourseAction(course);
+      grid.appendChild(button);
+    });
+    showScreen("screen-course-list");
+  };
+
+  function openCourseAction(course) {
+    selectedCourse = course;
+    document.getElementById("course-action-name").textContent = "コース名：" + course.name;
+    showOverlay("overlay-course-action");
+  }
+
+  window.closeCourseAction = function() {
+    closeAllOverlays();
+  };
+
+  window.goCourseCategory = async function(action) {
+    selectedCourseAction = action;
+    if (!selectedCourse) return;
+    courseProducts = await json(`/api/admin/courses/${selectedCourse.id}/products`);
+
+    const grid = document.getElementById("course-category-grid");
+    grid.innerHTML = "";
+    const targetCategories = categories.filter(category => {
+      if (isPlanCategory(category.code)) return false;
+      const inCategory = courseProducts.filter(p => p.category === category.code);
+      // 商品削除の場合は、このコースに商品が登録されているカテゴリのみ表示する
+      if (selectedCourseAction === "remove") {
+        return inCategory.some(p => p.included);
+      }
+      return true;
+    });
+    targetCategories.forEach(category => {
+      const button = document.createElement("button");
+      button.className = "btn";
+      button.type = "button";
+      button.textContent = category.name;
+      button.onclick = () => selectCourseCategory(category.code);
+      grid.appendChild(button);
+    });
+
+    closeAllOverlays();
+    showScreen("screen-course-category");
+  };
+
+  window.backToCourseAction = function() {
+    showScreen("screen-course-list");
+    if (selectedCourse) openCourseAction(selectedCourse);
+  };
+
+  function selectCourseCategory(categoryCode) {
+    selectedCourseCategory = categoryCode;
+    const grid = document.getElementById("course-product-grid");
+    grid.innerHTML = "";
+    courseProducts
+      .filter(p => p.category === categoryCode)
+      .filter(p => (selectedCourseAction === "remove" ? p.included : !p.included))
+      .forEach(product => {
+        const button = document.createElement("button");
+        button.className = "btn";
+        button.type = "button";
+        button.textContent = product.name;
+        button.onclick = () => executeCourseProductAction(product);
+        grid.appendChild(button);
+      });
+    showScreen("screen-course-products");
+  };
+
+  async function executeCourseProductAction(product) {
+    if (!selectedCourse) return;
+    if (selectedCourseAction === "remove") {
+      await json(`/api/admin/courses/${selectedCourse.id}/products/${product.id}`, { method: "DELETE" });
+    } else {
+      await json(`/api/admin/courses/${selectedCourse.id}/products/${product.id}`, { method: "POST" });
+    }
+
+    document.getElementById("course-done-course").textContent = "コース名：" + selectedCourse.name;
+    document.getElementById("course-done-product").textContent = "商品名：" + product.name;
+    document.getElementById("course-done-action").textContent =
+      selectedCourseAction === "remove" ? "商品削除を完了いたしました。" : "商品追加を完了いたしました。";
+    showOverlay("overlay-course-done");
+  }
+
+  window.finishCourseAction = function() {
+    closeAllOverlays();
+    showScreen("screen-list");
   };
 
   document.addEventListener("DOMContentLoaded", loadData);

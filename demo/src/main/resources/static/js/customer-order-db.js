@@ -3,6 +3,13 @@
   let categories = [];
   let selectedProduct = null;
   let pageTotal = 0;
+  let activeFilter = "all";
+  let hideSoldOut = true;
+
+  // 飲み放題・食べ放題は「個数」ではなく「人数」で数える
+  function isPlanCategory(category) {
+    return category === "nomi" || category === "tabehoudai";
+  }
 
   function tableNumber() {
     const fromUrl = new URLSearchParams(location.search).get("table");
@@ -36,11 +43,17 @@
       tab.addEventListener("click", () => {
         bar.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
         tab.classList.add("active");
-        const filter = tab.dataset.filter;
-        document.querySelectorAll(".card").forEach(card => {
-          card.style.display = filter === "all" || card.dataset.category === filter ? "grid" : "none";
-        });
+        activeFilter = tab.dataset.filter;
+        updateCardVisibility();
       });
+    });
+  }
+
+  function updateCardVisibility() {
+    document.querySelectorAll(".card").forEach(card => {
+      const matchesCategory = activeFilter === "all" || card.dataset.category === activeFilter;
+      const hiddenBySoldOut = hideSoldOut && card.dataset.soldOut === "true";
+      card.style.display = matchesCategory && !hiddenBySoldOut ? "grid" : "none";
     });
   }
 
@@ -55,6 +68,7 @@
       card.dataset.category = product.category;
       card.dataset.price = product.price;
       card.dataset.productId = product.id;
+      card.dataset.soldOut = product.sold_out ? "true" : "false";
       card.innerHTML = `
         <div class="image">
           <img src="${product.image_path}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
@@ -66,6 +80,7 @@
       card.querySelector(".order-btn").onclick = () => openOrderModal(product);
       list.appendChild(card);
     });
+    updateCardVisibility();
   }
 
   function openOrderModal(product) {
@@ -75,6 +90,8 @@
     document.getElementById("modal-name").innerText = product.name;
     document.getElementById("modal-img").src = product.image_path;
     document.getElementById("modal-img").alt = product.name;
+    const qtyLabel = document.getElementById("qty-label");
+    if (qtyLabel) qtyLabel.textContent = isPlanCategory(product.category) ? "人数:" : "個数:";
     qty.value = 1;
     modal.classList.add("active");
   }
@@ -101,22 +118,29 @@
     document.getElementById("total-area").innerText = `合計：${pageTotal.toLocaleString()}円`;
     document.getElementById("modal").classList.remove("active");
     document.getElementById("complete-name").innerText = selectedProduct.name;
-    document.getElementById("complete-qty").innerText = `個数：${qty}`;
+    document.getElementById("complete-qty").innerText = `${isPlanCategory(selectedProduct.category) ? "人数" : "個数"}：${qty}`;
     document.getElementById("complete-img").src = selectedProduct.image_path;
     document.getElementById("complete-img").alt = selectedProduct.name;
     document.getElementById("complete-modal").classList.add("active");
   }
 
-  async function pay() {
+  async function checkoutCall() {
     const table = tableNumber();
-    const result = await loadJson("/api/orders/pay", {
+    const result = await loadJson("/api/orders/checkout-call", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tableNumber: table })
     });
-    document.getElementById("payment-total").innerText = `合計：${Number(result.totalPrice || pageTotal).toLocaleString()}円`;
-    pageTotal = 0;
-    document.getElementById("total-area").innerText = "合計：0円";
+    document.getElementById("payment-total").innerText = `会計：${Number(result.totalPrice || pageTotal).toLocaleString()}円`;
+  }
+
+  async function callStaff() {
+    const table = tableNumber();
+    await loadJson("/api/orders/call-staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tableNumber: table })
+    });
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -129,11 +153,25 @@
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
 
+    const hideSoldOutCheckbox = document.getElementById("hide-sold-out");
+    if (hideSoldOutCheckbox) {
+      hideSoldOut = hideSoldOutCheckbox.checked;
+      hideSoldOutCheckbox.addEventListener("change", () => {
+        hideSoldOut = hideSoldOutCheckbox.checked;
+        updateCardVisibility();
+      });
+    }
+
     document.getElementById("yes").onclick = submitOrder;
     document.getElementById("payment-yes").onclick = async () => {
       document.getElementById("payment-modal").classList.remove("active");
-      await pay();
+      await checkoutCall();
       document.getElementById("payment-complete-modal").classList.add("active");
+    };
+    document.getElementById("staff-call-yes").onclick = async () => {
+      document.getElementById("staff-call-modal").classList.remove("active");
+      await callStaff();
+      document.getElementById("staff-call-complete-modal").classList.add("active");
     };
     document.getElementById("history-yes").onclick = () => {
       location.href = "/order_history";

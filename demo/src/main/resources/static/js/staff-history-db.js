@@ -60,10 +60,16 @@
 
   window.openHaizenDone = async function() {
     if (!current) return;
-    await fetch(`/api/staff/order-items/${current.item_id}/undeliver`, { method: "PUT" });
+    const maxQty = Number(current.delivered_quantity || 0);
+    const qty = Math.max(1, Math.min(Number(document.getElementById("haizen-qty-input").value) || maxQty, maxQty));
+    await fetch(`/api/staff/order-items/${current.item_id}/undeliver`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity: qty })
+    });
     document.getElementById("haizen-done-table").textContent = "卓番号：" + current.table_number;
     document.getElementById("haizen-done-item").textContent = "商品名：" + current.name;
-    document.getElementById("haizen-done-qty").textContent = "数量：" + (current.delivered_quantity || 0);
+    document.getElementById("haizen-done-qty").textContent = "数量：" + (maxQty - qty);
     document.getElementById("overlay-haizen-confirm").classList.remove("active");
     document.getElementById("overlay-haizen-done").classList.add("active");
     await loadHistory();
@@ -71,10 +77,16 @@
 
   window.openCancelDone = async function() {
     if (!current) return;
-    await fetch(`/api/staff/order-items/${current.item_id}/cancel`, { method: "PUT" });
+    const maxQty = Number(current.qty || 0) - Number(current.delivered_quantity || 0) - Number(current.canceled_quantity || 0);
+    const qty = Math.max(1, Math.min(Number(document.getElementById("cancel-qty-input").value) || maxQty, maxQty));
+    await fetch(`/api/staff/order-items/${current.item_id}/cancel`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity: qty })
+    });
     document.getElementById("cancel-done-table").textContent = "卓番号：" + current.table_number;
     document.getElementById("cancel-done-item").textContent = "商品名：" + current.name;
-    document.getElementById("cancel-done-qty").textContent = "数量：" + document.getElementById("cancel-qty-input").value;
+    document.getElementById("cancel-done-qty").textContent = "数量：" + qty;
     document.getElementById("overlay-cancel-confirm").classList.remove("active");
     document.getElementById("overlay-cancel-done").classList.add("active");
     await loadHistory();

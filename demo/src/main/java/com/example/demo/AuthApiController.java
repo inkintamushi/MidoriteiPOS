@@ -27,7 +27,7 @@ public class AuthApiController {
 	public Map<String, Object> login(@RequestBody LoginRequest request, HttpSession session) {
 		var users = jdbcTemplate.queryForList("""
 				SELECT staff_id, display_name, role
-				FROM staff_users
+				FROM employees
 				WHERE staff_id = ? AND password_hash = ? AND active = TRUE
 				""", request.staffId(), sha256(request.password()));
 

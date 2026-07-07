@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>注文画面 Codex UI</title>
 
 <link rel="stylesheet" href="/css/common.css">
@@ -110,8 +111,11 @@ body {
   box-shadow: 0 4px 14px rgba(18, 56, 42, 0.05);
 }
 
-.info-bar span:nth-child(2) {
-  display: none;
+.sold-out-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 
 .table-number {
@@ -471,7 +475,7 @@ body {
 
 <div class="info-bar">
   <span id="table-number" class="table-number">卓番号：未選択</span>
-  <span>☑ 品切れを表示しない</span>
+  <label class="sold-out-toggle"><input type="checkbox" id="hide-sold-out" checked>品切れを表示しない</label>
   <span>残り時間：01:55</span>
 </div>
 
@@ -567,7 +571,7 @@ body {
     <div id="modal-name" class="modal-name"></div>
 
     <label class="qty-row">
-      個数:
+      <span id="qty-label">個数:</span>
       <span class="qty-control">
         <button id="qty-minus" class="qty-btn" type="button" aria-label="個数を減らす">−</button>
         <input id="qty" type="number" value="1" min="1" max="30">
@@ -607,7 +611,7 @@ body {
     <div class="modal-title">会計</div>
 
     <div class="payment-text">
-      <div id="payment-total" class="payment-total">合計：0円</div>
+      <div id="payment-total" class="payment-total">会計：0円</div>
       <div>お会計してもよろしいでしょうか。</div>
     </div>
 
@@ -625,7 +629,7 @@ body {
 
     <div class="payment-text">
       <div>会計をいたします。</div>
-      <div>レジにてお待ちください。</div>
+      <div>そのまま卓にてお待ちください。</div>
     </div>
 
     <button id="payment-ok" class="complete-ok" type="button">ok</button>
@@ -841,7 +845,7 @@ document.getElementById("complete-ok").onclick = () => {
 
 // ✅ メニュー
 document.getElementById("account").onclick = () => {
-  paymentTotal.innerText = `合計：${totalPrice.toLocaleString()}円`;
+  paymentTotal.innerText = `会計：${totalPrice.toLocaleString()}円`;
   paymentModal.classList.add("active");
 };
 

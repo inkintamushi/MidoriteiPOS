@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>注文画面 - みどり亭</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -11,16 +13,18 @@ body {
   font-family: sans-serif;
 }
 
-/* ===== スマホ枠（default_nav.html 共通） ===== */
+/* ===== スマホ本体 → 実機画面いっぱいに表示 ===== */
 .phone {
-  width: 380px;
-  height: 820px;
-  margin: 40px auto;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
   background: #fff;
-  border-radius: 50px;
-  border: 5px solid #000;
+  border-radius: 0;
+  border: 0;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
 /* ===== ヘッダー（共通） ===== */
@@ -28,10 +32,9 @@ body {
   background: #003d00;
   color: #fff;
   text-align: center;
-  font-size: 36px;
-  padding: 40px 0;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  font-size: clamp(24px, 7vw, 36px);
+  padding: clamp(18px, 5vw, 34px) 12px;
+  border-radius: 0;
 }
 
 /* ===== タブ（共通） ===== */
@@ -50,37 +53,20 @@ body {
 }
 .tab:last-child { border-right: none; }
 
-/* ===== 下の黒いエリア（共通） ===== */
-.bottom {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 120px;
-  background: #000;
-  border-bottom-left-radius: 44px;
-  border-bottom-right-radius: 44px;
-}
-
-/* ===== ホームボタン（共通） ===== */
+/* ===== 下の黒いエリア・ホームボタン（実機では不要な演出のため非表示） ===== */
+.bottom,
 .home {
-  position: absolute;
-  bottom: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 60px;
-  border: 4px solid #fff;
-  border-radius: 50%;
+  display: none;
 }
 
 /* ===== 画面切替 ===== */
-.screen { display: none; }
-.screen.active { display: block; }
+.screen { display: none; flex-direction: column; min-height: 0; flex: 1; }
+.screen.active { display: flex; }
 
 /* ===== コンテンツエリア ===== */
 .content-area {
-  /* header(116px) + tabs(~46px) + bottom(120px) */
-  height: calc(820px - 116px - 46px - 120px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -135,7 +121,7 @@ body {
 
 /* ===== モーダルカード共通 ===== */
 .modal-card {
-  width: 300px;
+  width: min(300px, 88vw);
   background: #fff;
   border: 3px solid #000;
   border-radius: 40px;
@@ -228,7 +214,7 @@ body {
   transform: translate(-50%, -50%);
 }
 .qr-card {
-  width: 310px;
+  width: min(310px, 88vw);
   border: 2px solid #000;
   border-radius: 16px;
   padding: 18px 16px;
@@ -300,8 +286,8 @@ body {
 
   <!-- ===== 共通タブ（default_nav.html） ===== -->
   <div class="tabs">
-    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
-    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='taku.html'">ホーム</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">配膳登録</div>
     <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
     <div class="tab" onclick="location.href='shouhinnkannri.html'">商品管理</div>
   </div>
@@ -311,36 +297,17 @@ body {
   ============================================================ -->
   <div id="screen-main" class="screen active">
     <div class="content-area">
-      <div class="grid">
-        <button class="btn" onclick="goYaki()">焼き鳥</button>
-        <button class="btn">アルコール</button>
-        <button class="btn">ソフト<br>ドリンク</button>
-        <button class="btn">デザート</button>
-        <button class="btn">漬物</button>
-        <button class="btn">一品</button>
-        <button class="btn">盛り合わせ</button>
-        <button class="btn">食べ放題</button>
-        <button class="btn">飲み放題</button>
-      </div>
+      <div class="grid" id="category-grid"></div>
       <button class="action-btn" onclick="openQR()">QR再発行</button>
     </div>
   </div>
 
   <!-- ============================================================
-       画面2: 注文画面_焼き鳥（商品一覧）
+       画面2: 注文画面_商品一覧
   ============================================================ -->
   <div id="screen-yaki" class="screen">
     <div class="content-area">
-      <div class="grid">
-        <button class="btn" onclick="openConfirm('モモ焼き鳥(タレ)')">モモ焼き鳥<br>（タレ）</button>
-        <button class="btn" onclick="openConfirm('モモ焼き鳥(塩)')">モモ焼き鳥<br>（塩）</button>
-        <button class="btn" onclick="openConfirm('砂肝')">砂肝</button>
-        <button class="btn" onclick="openConfirm('カワ焼き鳥(タレ)')">カワ焼き鳥<br>（タレ）</button>
-        <button class="btn" onclick="openConfirm('カワ焼き鳥(塩)')">カワ焼き鳥<br>（塩）</button>
-        <button class="btn" onclick="openConfirm('サンカク')">サンカク</button>
-        <button class="btn" onclick="openConfirm('ハツ')">ハツ</button>
-        <button class="btn" onclick="openConfirm('レバー')">レバー</button>
-      </div>
+      <div class="grid" id="product-grid"></div>
       <button class="action-btn" onclick="showScreen('screen-main')">戻る</button>
     </div>
   </div>
@@ -352,8 +319,8 @@ body {
     <div class="modal-card">
       <div class="modal-title">注文確定</div>
       <div class="modal-body">
-        <p>卓番号：9</p>
-        <p id="confirm-item">商品名：モモ焼き鳥(タレ)</p>
+        <p id="confirm-table">卓番号：</p>
+        <p id="confirm-item">商品名：</p>
         <div class="qty-row">
           <span>個数：</span>
           <input type="number" id="qty-input" class="qty-input" value="1" min="1">
@@ -373,7 +340,7 @@ body {
     <div class="modal-card">
       <div class="modal-title">注文完了</div>
       <div class="modal-body">
-        <p>卓番号：9</p>
+        <p id="done-table">卓番号：</p>
         <p id="done-item"></p>
         <p id="done-qty"></p>
       </div>
@@ -387,15 +354,13 @@ body {
   <!-- ============================================================
        オーバーレイ3: QRコード再表示モーダル
   ============================================================ -->
-  <div id="overlay-qr" class="overlay">
+  <div id="qr-modal" class="overlay">
     <div class="qr-overlay-inner">
       <div class="qr-card">
-        <div class="qr-id-row">顧客ID ●●●●●●●●●●</div>
-        <div class="qr-box">QRコード表示</div>
-        <button class="barcode-btn">一次元バーコード</button>
+        <div class="qr-id-row" id="qr-modal-text">卓番号：</div>
+        <div class="qr-box" id="qr-code-box">QRコード表示</div>
         <div class="print-row">
-          <input type="number" value="4" min="1">
-          <button class="print-btn" onclick="closeQR()">印刷</button>
+          <button class="print-btn" onclick="closeQR()">閉じる</button>
         </div>
       </div>
     </div>
@@ -426,54 +391,18 @@ function closeAllOverlays() {
 }
 
 /* ========================================
-   焼き鳥画面へ
+   QRコード再表示（table-management-db.js が実装を上書きする）
 ======================================== */
-function goYaki() {
-  showScreen('screen-yaki');
-}
-
-/* ========================================
-   注文確定モーダル
-======================================== */
-function openConfirm(name) {
-  document.getElementById('confirm-item').textContent = '商品名：' + name;
-  document.getElementById('qty-input').value = 1;
-  showOverlay('overlay-confirm');
-}
-
-function closeConfirm() {
-  closeAllOverlays();
-}
-
-function executOrder() {
-  const item = document.getElementById('confirm-item').textContent;
-  const qty  = document.getElementById('qty-input').value;
-
-  document.getElementById('done-item').textContent = item;
-  document.getElementById('done-qty').textContent  = '個数：' + qty;
-
-  showOverlay('overlay-done');
-}
-
-/* ========================================
-   注文完了 → メインへ戻る
-======================================== */
-function finishOrder() {
-  closeAllOverlays();
-  showScreen('screen-main');
-}
-
-/* ========================================
-   QRコード再表示
-======================================== */
-function openQR() {
-  showOverlay('overlay-qr');
+function reissueQr(tableNo) {
+  showOverlay('qr-modal');
 }
 
 function closeQR() {
   closeAllOverlays();
 }
 </script>
+<script src="/js/tyuumonn-db.js"></script>
+<script src="/js/table-management-db.js"></script>
 
 </body>
 </html>

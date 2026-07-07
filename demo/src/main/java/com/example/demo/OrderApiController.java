@@ -2,9 +2,13 @@ package com.example.demo;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,6 +25,28 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class OrderApiController {
 
+	private static final long DEFAULT_STORE_ID = 1L;
+
+	// 1 cleaning-unhandled(清掃未対応), 2 call-unhandled(呼出未対応),
+	// 3 cleaning-needs-help(清掃要応援), 4 call-needs-help(呼出要応援),
+	// 5 cleaning-in-progress(清掃対応中), 6 call-in-progress(呼出対応中),
+	// 7 available(使用可能), 8 out-of-service(使用中止), 9 occupied(使用中),
+	// 10 payment-waiting(会計対応待ち)
+	private static final Map<String, Integer> SEAT_STATUS_CODES = Map.ofEntries(
+			Map.entry("CLEANING_UNHANDLED", 1),
+			Map.entry("CALL_UNHANDLED", 2),
+			Map.entry("CLEANING_NEEDS_HELP", 3),
+			Map.entry("CALL_NEEDS_HELP", 4),
+			Map.entry("CLEANING_IN_PROGRESS", 5),
+			Map.entry("CALL_IN_PROGRESS", 6),
+			Map.entry("AVAILABLE", 7),
+			Map.entry("OUT_OF_SERVICE", 8),
+			Map.entry("OCCUPIED", 9),
+			Map.entry("PAYMENT_WAITING", 10));
+
+	private static final Map<Integer, String> SEAT_STATUS_LABELS = SEAT_STATUS_CODES.entrySet().stream()
+			.collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
 	private final JdbcTemplate jdbcTemplate;
 
 	public OrderApiController(JdbcTemplate jdbcTemplate) {
@@ -30,26 +56,19 @@ public class OrderApiController {
 	@PostMapping("/api/orders")
 	@Transactional
 	public Map<String, Object> createOrder(@RequestBody CreateOrderRequest request) {
-		ensureTable(request.tableNumber());
+		long tableId = ensureTableId(request.tableNumber());
+		long sessionId = ensureActiveTableSession(tableId, null);
 
 		int total = 0;
 		for (CreateOrderItem item : request.items()) {
 			Map<String, Object> product = product(item.productId());
 			total += ((Number) product.get("price")).intValue() * item.quantity();
 		}
-		int totalPrice = total;
 
-		GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
-		jdbcTemplate.update(connection -> {
-			PreparedStatement ps = connection.prepareStatement("""
-					INSERT INTO customer_orders (table_number, status, total_price)
-					VALUES (?, 'ORDERED', ?)
-					""", Statement.RETURN_GENERATED_KEYS);
-			ps.setInt(1, request.tableNumber());
-			ps.setInt(2, totalPrice);
-			return ps;
-		}, keyHolder);
-		long orderId = keyHolder.getKey().longValue();
+		long orderId = insertAndGetKey("""
+				INSERT INTO orders (table_session_id, ordered_at)
+				VALUES (?, CURRENT_TIMESTAMP)
+				""", sessionId);
 
 		for (CreateOrderItem item : request.items()) {
 			Map<String, Object> product = product(item.productId());
@@ -59,11 +78,8 @@ public class OrderApiController {
 					""", orderId, item.productId(), product.get("name"), item.quantity(), product.get("price"));
 		}
 
-		jdbcTemplate.update("""
-				UPDATE dining_tables
-				SET status = 'IN_USE', current_order_id = ?
-				WHERE table_number = ?
-				""", orderId, request.tableNumber());
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
 
 		return Map.of("ok", true, "orderId", orderId, "totalPrice", total);
 	}
@@ -72,137 +88,311 @@ public class OrderApiController {
 	public List<Map<String, Object>> history(@RequestParam(required = false) Integer tableNumber) {
 		if (tableNumber == null) {
 			return jdbcTemplate.queryForList("""
-					SELECT o.id AS order_id, o.table_number, o.status AS order_status, o.total_price,
-					       o.created_at, i.id AS item_id, i.product_name AS name, i.quantity AS qty,
+					SELECT o.id AS order_id, t.table_number, o.ordered_at AS created_at,
+					       i.id AS item_id, i.product_name AS name, i.quantity AS qty,
 					       i.delivered_quantity, i.canceled_quantity, i.unit_price, i.status AS item_status
-					FROM customer_orders o
+					FROM orders o
+					JOIN table_sessions ts ON ts.id = o.table_session_id
+					JOIN dining_tables t ON t.id = ts.table_id
 					JOIN order_items i ON i.order_id = o.id
-					ORDER BY o.created_at DESC, i.id
-					""");
+					WHERE t.store_id = ?
+					ORDER BY o.ordered_at DESC, i.id
+					""", DEFAULT_STORE_ID);
 		}
 		return jdbcTemplate.queryForList("""
-				SELECT o.id AS order_id, o.table_number, o.status AS order_status, o.total_price,
-				       o.created_at, i.id AS item_id, i.product_name AS name, i.quantity AS qty,
+				SELECT o.id AS order_id, t.table_number, o.ordered_at AS created_at,
+				       i.id AS item_id, i.product_name AS name, i.quantity AS qty,
 				       i.delivered_quantity, i.canceled_quantity, i.unit_price, i.status AS item_status
-				FROM customer_orders o
+				FROM orders o
+				JOIN table_sessions ts ON ts.id = o.table_session_id
+				JOIN dining_tables t ON t.id = ts.table_id
 				JOIN order_items i ON i.order_id = o.id
-				WHERE o.table_number = ?
-				ORDER BY o.created_at DESC, i.id
-				""", tableNumber);
+				WHERE t.store_id = ? AND t.table_number = ? AND ts.ended_at IS NULL
+				ORDER BY o.ordered_at DESC, i.id
+				""", DEFAULT_STORE_ID, tableNumber);
 	}
 
 	@GetMapping("/api/staff/pending-orders")
 	public List<Map<String, Object>> pendingOrders() {
 		return jdbcTemplate.queryForList("""
-				SELECT i.id, o.id AS order_id, o.table_number AS table_no, i.product_name AS item,
+				SELECT i.id, o.id AS order_id, t.table_number AS table_no, i.product_name AS item,
 				       i.quantity AS qty, i.delivered_quantity, i.canceled_quantity,
 				       (i.quantity - i.delivered_quantity - i.canceled_quantity) AS remaining_qty,
-				       i.status, i.created_at
+				       i.status, o.ordered_at AS created_at
 				FROM order_items i
-				JOIN customer_orders o ON o.id = i.order_id
-				WHERE o.status <> 'PAID'
+				JOIN orders o ON o.id = i.order_id
+				JOIN table_sessions ts ON ts.id = o.table_session_id
+				JOIN dining_tables t ON t.id = ts.table_id
+				WHERE ts.ended_at IS NULL
 				  AND i.status <> 'CANCELED'
 				  AND (i.quantity - i.delivered_quantity - i.canceled_quantity) > 0
-				ORDER BY i.created_at
+				ORDER BY o.ordered_at, i.id
 				""");
 	}
 
 	@PutMapping("/api/staff/order-items/{itemId}/deliver")
-	public Map<String, Object> deliver(@PathVariable long itemId) {
-		jdbcTemplate.update("""
-				UPDATE order_items
-				SET delivered_quantity = quantity - canceled_quantity,
-				    status = 'DELIVERED'
-				WHERE id = ?
-				""", itemId);
-		refreshOrderStatus(itemId);
+	@Transactional
+	public Map<String, Object> deliver(@PathVariable long itemId, @RequestBody(required = false) QuantityRequest request) {
+		Map<String, Object> item = orderItem(itemId);
+		int quantity = ((Number) item.get("quantity")).intValue();
+		int delivered = ((Number) item.get("delivered_quantity")).intValue();
+		int canceled = ((Number) item.get("canceled_quantity")).intValue();
+		int remaining = quantity - delivered - canceled;
+		int requested = (request == null || request.quantity() == null) ? remaining : request.quantity();
+		int applied = clamp(requested, remaining);
+		int newDelivered = delivered + applied;
+
+		if (newDelivered + canceled >= quantity) {
+			jdbcTemplate.update("""
+					UPDATE order_items
+					SET delivered_quantity = ?, status = 'DELIVERED', completed_at = CURRENT_TIMESTAMP
+					WHERE id = ?
+					""", newDelivered, itemId);
+		} else {
+			jdbcTemplate.update("""
+					UPDATE order_items
+					SET delivered_quantity = ?, status = 'ORDERED', completed_at = NULL
+					WHERE id = ?
+					""", newDelivered, itemId);
+		}
 		return Map.of("ok", true);
 	}
 
 	@PutMapping("/api/staff/order-items/{itemId}/undeliver")
-	public Map<String, Object> undeliver(@PathVariable long itemId) {
+	@Transactional
+	public Map<String, Object> undeliver(@PathVariable long itemId, @RequestBody(required = false) QuantityRequest request) {
+		Map<String, Object> item = orderItem(itemId);
+		int delivered = ((Number) item.get("delivered_quantity")).intValue();
+		int requested = (request == null || request.quantity() == null) ? delivered : request.quantity();
+		int applied = clamp(requested, delivered);
+		int newDelivered = delivered - applied;
+
 		jdbcTemplate.update("""
 				UPDATE order_items
-				SET delivered_quantity = 0,
-				    status = 'ORDERED'
+				SET delivered_quantity = ?, status = 'ORDERED', completed_at = NULL
 				WHERE id = ?
-				""", itemId);
-		Long orderId = jdbcTemplate.queryForObject("SELECT order_id FROM order_items WHERE id = ?", Long.class, itemId);
-		jdbcTemplate.update("UPDATE customer_orders SET status = 'ORDERED' WHERE id = ? AND status <> 'PAID'", orderId);
+				""", newDelivered, itemId);
 		return Map.of("ok", true);
 	}
 
 	@PutMapping("/api/staff/order-items/{itemId}/cancel")
-	public Map<String, Object> cancel(@PathVariable long itemId) {
+	@Transactional
+	public Map<String, Object> cancel(@PathVariable long itemId, @RequestBody(required = false) QuantityRequest request) {
+		Map<String, Object> item = orderItem(itemId);
+		int quantity = ((Number) item.get("quantity")).intValue();
+		int delivered = ((Number) item.get("delivered_quantity")).intValue();
+		int canceled = ((Number) item.get("canceled_quantity")).intValue();
+		int remaining = quantity - delivered - canceled;
+		int requested = (request == null || request.quantity() == null) ? remaining : request.quantity();
+		int applied = clamp(requested, remaining);
+		int newCanceled = canceled + applied;
+
 		jdbcTemplate.update("""
 				UPDATE order_items
-				SET canceled_quantity = quantity - delivered_quantity,
-				    status = 'CANCELED'
+				SET canceled_quantity = ?, status = ?
 				WHERE id = ?
-				""", itemId);
-		refreshOrderStatus(itemId);
+				""", newCanceled, (newCanceled + delivered >= quantity) ? "CANCELED" : "ORDERED", itemId);
 		return Map.of("ok", true);
 	}
 
-	@PostMapping("/api/orders/pay")
-	@Transactional
-	public Map<String, Object> pay(@RequestBody PayRequest request) {
-		List<Map<String, Object>> orders = jdbcTemplate.queryForList("""
-				SELECT id, total_price
-				FROM customer_orders
-				WHERE table_number = ? AND status <> 'PAID'
-				""", request.tableNumber());
-		int total = 0;
-		for (Map<String, Object> order : orders) {
-			long orderId = ((Number) order.get("id")).longValue();
-			int orderTotal = ((Number) order.get("total_price")).intValue();
-			total += orderTotal;
-			jdbcTemplate.update("UPDATE customer_orders SET status = 'PAID', paid_at = CURRENT_TIMESTAMP WHERE id = ?", orderId);
-			jdbcTemplate.update("""
-					INSERT INTO sales_records (order_id, table_number, total_price)
-					VALUES (?, ?, ?)
-					ON DUPLICATE KEY UPDATE total_price = VALUES(total_price)
-					""", orderId, request.tableNumber(), orderTotal);
+	private Map<String, Object> orderItem(long itemId) {
+		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+				SELECT quantity, delivered_quantity, canceled_quantity FROM order_items WHERE id = ?
+				""", itemId);
+		if (rows.isEmpty()) {
+			throw new IllegalArgumentException("注文明細が見つかりません: " + itemId);
 		}
-		jdbcTemplate.update("""
-				UPDATE dining_tables
-				SET status = 'EMPTY', guest_count = 0, current_order_id = NULL
-				WHERE table_number = ?
-				""", request.tableNumber());
+		return rows.get(0);
+	}
+
+	private int clamp(int requested, int max) {
+		return Math.max(0, Math.min(requested, max));
+	}
+
+	@PostMapping("/api/orders/checkout-call")
+	public Map<String, Object> checkoutCall(@RequestBody PayRequest request) {
+		Long tableId = findTableId(request.tableNumber());
+		if (tableId == null) {
+			return Map.of("ok", true, "totalPrice", 0);
+		}
+		Integer total = currentSessionTotal(tableId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("PAYMENT_WAITING"), tableId);
 		return Map.of("ok", true, "totalPrice", total);
+	}
+
+	@PostMapping("/api/orders/call-staff")
+	public Map<String, Object> callStaff(@RequestBody PayRequest request) {
+		Long tableId = findTableId(request.tableNumber());
+		if (tableId != null) {
+			jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+					SEAT_STATUS_CODES.get("CALL_UNHANDLED"), tableId);
+		}
+		return Map.of("ok", true);
+	}
+
+	@PutMapping("/api/staff/tables/{tableNumber}/finalize-payment")
+	@Transactional
+	public Map<String, Object> finalizePayment(@PathVariable int tableNumber) {
+		Long tableId = findTableId(tableNumber);
+		if (tableId == null) {
+			return Map.of("ok", true, "totalPrice", 0);
+		}
+
+		List<Map<String, Object>> sessions = jdbcTemplate.queryForList("""
+				SELECT id, customer_group_id
+				FROM table_sessions
+				WHERE table_id = ? AND ended_at IS NULL
+				""", tableId);
+		if (sessions.isEmpty()) {
+			return Map.of("ok", true, "totalPrice", 0);
+		}
+		long sessionId = ((Number) sessions.get(0).get("id")).longValue();
+		long groupId = ((Number) sessions.get(0).get("customer_group_id")).longValue();
+		Integer total = sessionTotal(sessionId);
+
+		jdbcTemplate.update("UPDATE table_sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?", sessionId);
+		jdbcTemplate.update("""
+				UPDATE customer_groups SET billing_status = 2, left_at = CURRENT_TIMESTAMP WHERE id = ?
+				""", groupId);
+		// 状態遷移表: 会計時、自動で「清掃未対応」になる
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("CLEANING_UNHANDLED"), tableId);
+
+		return Map.of("ok", true, "totalPrice", total);
+	}
+
+	private Integer sessionTotal(long sessionId) {
+		return jdbcTemplate.queryForObject("""
+				SELECT COALESCE(SUM(oi.unit_price * (oi.quantity - oi.canceled_quantity)), 0)
+				FROM order_items oi
+				JOIN orders o ON o.id = oi.order_id
+				WHERE o.table_session_id = ?
+				""", Integer.class, sessionId);
+	}
+
+	private Integer currentSessionTotal(long tableId) {
+		List<Long> sessionIds = jdbcTemplate.queryForList("""
+				SELECT id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
+				""", Long.class, tableId);
+		if (sessionIds.isEmpty()) {
+			return 0;
+		}
+		return sessionTotal(sessionIds.get(0));
 	}
 
 	@GetMapping("/api/staff/tables")
 	public List<Map<String, Object>> tables() {
-		return jdbcTemplate.queryForList("""
-				SELECT table_number, guest_count, status, current_order_id
-				FROM dining_tables
-				ORDER BY table_number
-				""");
+		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+				SELECT t.table_number, COALESCE(cg.guest_count, 0) AS guest_count, t.seat_status
+				FROM dining_tables t
+				LEFT JOIN table_sessions ts ON ts.table_id = t.id AND ts.ended_at IS NULL
+				LEFT JOIN customer_groups cg ON cg.id = ts.customer_group_id
+				WHERE t.store_id = ?
+				ORDER BY t.table_number
+				""", DEFAULT_STORE_ID);
+		List<Map<String, Object>> result = new ArrayList<>();
+		for (Map<String, Object> row : rows) {
+			Map<String, Object> mapped = new LinkedHashMap<>(row);
+			int code = ((Number) mapped.remove("seat_status")).intValue();
+			mapped.put("status", SEAT_STATUS_LABELS.get(code));
+			result.add(mapped);
+		}
+		return result;
 	}
 
 	@PutMapping("/api/staff/tables/{tableNumber}")
 	public Map<String, Object> updateTable(@PathVariable int tableNumber, @RequestBody TableRequest request) {
-		ensureTable(tableNumber);
-		jdbcTemplate.update("""
-				UPDATE dining_tables
-				SET guest_count = COALESCE(?, guest_count),
-				    status = COALESCE(?, status)
-				WHERE table_number = ?
-				""", request.guestCount(), request.status(), tableNumber);
+		long tableId = ensureTableId(tableNumber);
+		Integer seatStatus = request.status() == null ? null : resolveSeatStatus(request.status());
+		if (seatStatus != null) {
+			jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", seatStatus, tableId);
+		}
+
+		if (seatStatus != null && seatStatus.equals(SEAT_STATUS_CODES.get("OCCUPIED"))) {
+			long sessionId = ensureActiveTableSession(tableId, request.guestCount());
+			if (request.courseId() != null) {
+				Long groupId = jdbcTemplate.queryForObject(
+						"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
+				jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", request.courseId(), groupId);
+			}
+		} else if (request.guestCount() != null) {
+			List<Long> activeGroupIds = jdbcTemplate.queryForList("""
+					SELECT customer_group_id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
+					""", Long.class, tableId);
+			if (!activeGroupIds.isEmpty()) {
+				jdbcTemplate.update("UPDATE customer_groups SET guest_count = ? WHERE id = ?",
+						request.guestCount(), activeGroupIds.get(0));
+			}
+		}
 		return Map.of("ok", true);
+	}
+
+	@PutMapping("/api/staff/tables/move")
+	@Transactional
+	public Map<String, Object> moveTable(@RequestBody MoveRequest request) {
+		long fromId = ensureTableId(request.fromTableNumber());
+		long toId = ensureTableId(request.toTableNumber());
+
+		Long sessionId = activeSessionId(fromId);
+		if (sessionId == null) {
+			return Map.of("ok", false, "message", "移動元の卓に利用客がいません。");
+		}
+		if (activeSessionId(toId) != null) {
+			return Map.of("ok", false, "message", "移動先の卓は空いていません。");
+		}
+
+		int fromStatus = jdbcTemplate.queryForObject(
+				"SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, fromId);
+
+		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", toId, sessionId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", fromStatus, toId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("AVAILABLE"), fromId);
+
+		return Map.of("ok", true);
+	}
+
+	@PutMapping("/api/staff/tables/swap")
+	@Transactional
+	public Map<String, Object> swapTables(@RequestBody SwapRequest request) {
+		long aId = ensureTableId(request.tableNumberA());
+		long bId = ensureTableId(request.tableNumberB());
+
+		Long aSessionId = activeSessionId(aId);
+		Long bSessionId = activeSessionId(bId);
+		if (aSessionId == null || bSessionId == null) {
+			return Map.of("ok", false, "message", "交換する両方の卓が利用中である必要があります。");
+		}
+
+		int aStatus = jdbcTemplate.queryForObject("SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, aId);
+		int bStatus = jdbcTemplate.queryForObject("SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, bId);
+
+		// 一時的に重複しないよう、いったん退避用のtable_idを経由せず直接入れ替える
+		// (aとbは別レコードなので、更新順序による衝突は発生しない)
+		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", bId, aSessionId);
+		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", aId, bSessionId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", bStatus, aId);
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", aStatus, bId);
+
+		return Map.of("ok", true);
+	}
+
+	private Long activeSessionId(long tableId) {
+		List<Long> ids = jdbcTemplate.queryForList(
+				"SELECT id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL", Long.class, tableId);
+		return ids.isEmpty() ? null : ids.get(0);
 	}
 
 	@PostMapping("/api/staff/tables/{tableNumber}/qr")
 	public Map<String, Object> issueQr(@PathVariable int tableNumber, HttpServletRequest request) {
-		ensureTable(tableNumber);
+		long tableId = ensureTableId(tableNumber);
+		long sessionId = ensureActiveTableSession(tableId, null);
 		String token = UUID.randomUUID().toString();
+		String secretCode = generateSecretCode();
 		String orderUrl = baseUrl(request) + "/order?table=" + tableNumber + "&qr=" + token;
-		jdbcTemplate.update("UPDATE table_qr_codes SET active = FALSE WHERE table_number = ?", tableNumber);
-		jdbcTemplate.update("""
-				INSERT INTO table_qr_codes (table_number, qr_token, order_url, active)
-				VALUES (?, ?, ?, TRUE)
-				""", tableNumber, token, orderUrl);
+		jdbcTemplate.update("UPDATE table_sessions SET qr_code = ?, secret_code = ? WHERE id = ?",
+				token, secretCode, sessionId);
 		return Map.of("ok", true, "tableNumber", tableNumber, "token", token, "orderUrl", orderUrl);
 	}
 
@@ -210,34 +400,90 @@ public class OrderApiController {
 		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
 				SELECT id, name, price
 				FROM products
-				WHERE id = ? AND active = TRUE AND sold_out = FALSE
-				""", productId);
+				WHERE id = ? AND store_id = ? AND active = TRUE AND sold_out = FALSE
+				""", productId, DEFAULT_STORE_ID);
 		if (rows.isEmpty()) {
 			throw new IllegalArgumentException("商品が注文できません: " + productId);
 		}
 		return rows.get(0);
 	}
 
-	private void ensureTable(int tableNumber) {
-		jdbcTemplate.update("""
-				INSERT INTO dining_tables (table_number, guest_count, status)
-				VALUES (?, 0, 'EMPTY')
-				ON DUPLICATE KEY UPDATE table_number = VALUES(table_number)
-				""", tableNumber);
+	private long ensureTableId(int tableNumber) {
+		List<Long> ids = jdbcTemplate.queryForList(
+				"SELECT id FROM dining_tables WHERE store_id = ? AND table_number = ?",
+				Long.class, DEFAULT_STORE_ID, tableNumber);
+		if (!ids.isEmpty()) {
+			return ids.get(0);
+		}
+		return insertAndGetKey("""
+				INSERT INTO dining_tables (store_id, table_number, seat_status)
+				VALUES (?, ?, ?)
+				""", DEFAULT_STORE_ID, tableNumber, SEAT_STATUS_CODES.get("AVAILABLE"));
 	}
 
-	private void refreshOrderStatus(long itemId) {
-		Long orderId = jdbcTemplate.queryForObject("SELECT order_id FROM order_items WHERE id = ?", Long.class, itemId);
-		Integer remaining = jdbcTemplate.queryForObject("""
-				SELECT COUNT(*)
-				FROM order_items
-				WHERE order_id = ?
-				  AND status <> 'CANCELED'
-				  AND (quantity - delivered_quantity - canceled_quantity) > 0
-				""", Integer.class, orderId);
-		if (remaining != null && remaining == 0) {
-			jdbcTemplate.update("UPDATE customer_orders SET status = 'DELIVERED' WHERE id = ? AND status <> 'PAID'", orderId);
+	private Long findTableId(int tableNumber) {
+		List<Long> ids = jdbcTemplate.queryForList(
+				"SELECT id FROM dining_tables WHERE store_id = ? AND table_number = ?",
+				Long.class, DEFAULT_STORE_ID, tableNumber);
+		return ids.isEmpty() ? null : ids.get(0);
+	}
+
+	/**
+	 * Finds the table's currently open session (customer_groups + table_sessions),
+	 * or lazily creates one if the table has none. Mirrors the seating flow
+	 * (kyakuannnai.html) and the ad-hoc table-occupation paths (createOrder,
+	 * issueQr, updateTable) all landing on the same active session.
+	 */
+	private long ensureActiveTableSession(long tableId, Integer guestCount) {
+		List<Long> activeSessionIds = jdbcTemplate.queryForList("""
+				SELECT id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
+				""", Long.class, tableId);
+		if (!activeSessionIds.isEmpty()) {
+			long sessionId = activeSessionIds.get(0);
+			if (guestCount != null) {
+				Long groupId = jdbcTemplate.queryForObject(
+						"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
+				jdbcTemplate.update("UPDATE customer_groups SET guest_count = ? WHERE id = ?", guestCount, groupId);
+			}
+			return sessionId;
 		}
+
+		int initialGuestCount = (guestCount != null && guestCount > 0) ? guestCount : 1;
+		long groupId = insertAndGetKey("""
+				INSERT INTO customer_groups (entered_at, billing_status, guest_count)
+				VALUES (CURRENT_TIMESTAMP, 1, ?)
+				""", initialGuestCount);
+		long sessionId = insertAndGetKey("""
+				INSERT INTO table_sessions (customer_group_id, table_id, started_at, qr_code, secret_code)
+				VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)
+				""", groupId, tableId, UUID.randomUUID().toString(), generateSecretCode());
+		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
+				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
+		return sessionId;
+	}
+
+	private String generateSecretCode() {
+		return String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
+	}
+
+	private int resolveSeatStatus(String status) {
+		Integer code = SEAT_STATUS_CODES.get(status);
+		if (code == null) {
+			throw new IllegalArgumentException("不明な座席状況です: " + status);
+		}
+		return code;
+	}
+
+	private long insertAndGetKey(String sql, Object... args) {
+		GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
+		jdbcTemplate.update(connection -> {
+			PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+			for (int i = 0; i < args.length; i++) {
+				ps.setObject(i + 1, args[i]);
+			}
+			return ps;
+		}, keyHolder);
+		return keyHolder.getKey().longValue();
 	}
 
 	private String baseUrl(HttpServletRequest request) {
@@ -256,6 +502,15 @@ public class OrderApiController {
 	public record PayRequest(int tableNumber) {
 	}
 
-	public record TableRequest(Integer guestCount, String status) {
+	public record TableRequest(Integer guestCount, String status, Long courseId) {
+	}
+
+	public record QuantityRequest(Integer quantity) {
+	}
+
+	public record MoveRequest(int fromTableNumber, int toTableNumber) {
+	}
+
+	public record SwapRequest(int tableNumberA, int tableNumberB) {
 	}
 }

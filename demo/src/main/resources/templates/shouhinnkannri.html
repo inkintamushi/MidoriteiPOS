@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>商品管理 - みどり亭</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11,16 +12,18 @@ body {
   font-family: sans-serif;
 }
 
-/* ===== スマホ枠（default_nav.html共通） ===== */
+/* ===== スマホ本体 → 実機画面いっぱいに表示 ===== */
 .phone {
-  width: 380px;
-  height: 820px;
-  margin: 40px auto;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
   background: #fff;
-  border-radius: 50px;
-  border: 5px solid #000;
+  border-radius: 0;
+  border: 0;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
 /* ===== ヘッダー（共通） ===== */
@@ -28,10 +31,9 @@ body {
   background: #003d00;
   color: #fff;
   text-align: center;
-  font-size: 36px;
-  padding: 40px 0;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  font-size: clamp(24px, 7vw, 36px);
+  padding: clamp(18px, 5vw, 34px) 12px;
+  border-radius: 0;
 }
 
 /* ===== タブ（共通） ===== */
@@ -52,36 +54,20 @@ body {
 .tab:last-child { border-right: none; }
 .tab.active-tab { background: #003d00; color: #fff; font-weight: bold; }
 
-/* ===== 下の黒いエリア（共通） ===== */
-.bottom {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 120px;
-  background: #000;
-  border-bottom-left-radius: 44px;
-  border-bottom-right-radius: 44px;
-}
-
-/* ===== ホームボタン（共通） ===== */
+/* ===== 下の黒いエリア・ホームボタン（実機では不要な演出のため非表示） ===== */
+.bottom,
 .home {
-  position: absolute;
-  bottom: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 60px;
-  border: 4px solid #fff;
-  border-radius: 50%;
+  display: none;
 }
 
 /* ===== 画面切替 ===== */
-.screen { display: none; }
-.screen.active { display: block; }
+.screen { display: none; flex-direction: column; min-height: 0; flex: 1; }
+.screen.active { display: flex; }
 
 /* ===== コンテンツエリア（スクロール） ===== */
 .content-area {
-  height: calc(820px - 116px - 120px); /* header + tabs + bottom */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -133,7 +119,7 @@ body {
 
 /* ===== 確認カード ===== */
 .confirm-card {
-  width: 300px;
+  width: min(300px, 88vw);
   background: #fff;
   border: 3px solid #000;
   border-radius: 40px;
@@ -204,7 +190,7 @@ body {
 
 /* ===== 完了カード ===== */
 .done-card {
-  width: 300px;
+  width: min(300px, 88vw);
   background: #fff;
   border: 3px solid #000;
   border-radius: 40px;
@@ -254,7 +240,7 @@ body {
 
 /* ===== 商品追加フォーム ===== */
 .add-card {
-  width: 300px;
+  width: min(300px, 88vw);
   background: #fff;
   border: 3px solid #000;
   border-radius: 40px;
@@ -325,8 +311,10 @@ body {
 
 /* ===== カテゴリー追加フォーム ===== */
 .category-card {
-  width: 300px;
+  width: min(300px, 88vw);
   min-height: 410px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: #fff;
   border: 3px solid #000;
   border-radius: 40px;
@@ -375,8 +363,8 @@ body {
 
   <!-- ===== 共通タブ ===== -->
   <div class="tabs">
-    <div class="tab" onclick="location.href='taku.html'">卓選択</div>
-    <div class="tab" onclick="location.href='mihaizen_rireki.html'">未配膳</div>
+    <div class="tab" onclick="location.href='taku.html'">ホーム</div>
+    <div class="tab" onclick="location.href='mihaizen_rireki.html'">配膳登録</div>
     <div class="tab" onclick="location.href='kyakuannnai.html'">案内</div>
     <div class="tab active-tab">商品管理</div>
   </div>
@@ -560,6 +548,68 @@ body {
         <p>カテゴリー追加<br>を完了いたしました。</p>
       </div>
       <button class="ok-btn" onclick="finishAddCategory()">ok</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面9: コース管理画面（食べ放題／飲み放題）
+  ============================================================ -->
+  <div id="screen-course-list" class="screen">
+    <div class="content-area">
+      <div class="grid" id="course-list-grid"></div>
+      <button class="back-btn" onclick="showScreen('screen-list')">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面10: コース管理選択（商品追加／商品削除）
+  ============================================================ -->
+  <div id="overlay-course-action" class="overlay">
+    <div class="confirm-card">
+      <div class="confirm-title" id="course-action-title">コース管理</div>
+      <div class="confirm-body">
+        <p id="course-action-name"></p>
+      </div>
+      <div class="edit-modal-buttons" style="display:flex; flex-direction:column; gap:14px; margin-top:20px; align-items:center;">
+        <button class="modal-btn" style="width:180px;" onclick="goCourseCategory('add')">商品追加</button>
+        <button class="modal-btn" style="width:180px;" onclick="goCourseCategory('remove')">商品削除</button>
+        <button class="modal-btn" style="width:180px;" onclick="closeCourseAction()">戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面11: コースカテゴリ選択画面
+  ============================================================ -->
+  <div id="screen-course-category" class="screen">
+    <div class="content-area">
+      <div class="grid" id="course-category-grid"></div>
+      <button class="back-btn" onclick="backToCourseAction()">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面12: コース商品選択画面
+  ============================================================ -->
+  <div id="screen-course-products" class="screen">
+    <div class="content-area">
+      <div class="grid" id="course-product-grid"></div>
+      <button class="back-btn" onclick="showScreen('screen-course-category')">戻る</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       画面13: コース管理完了（オーバーレイ）
+  ============================================================ -->
+  <div id="overlay-course-done" class="overlay">
+    <div class="done-card">
+      <div class="done-title">コース管理完了</div>
+      <div class="done-body">
+        <p id="course-done-course"></p>
+        <p id="course-done-product"></p>
+        <p id="course-done-action"></p>
+      </div>
+      <button class="ok-btn" onclick="finishCourseAction()">ok</button>
     </div>
   </div>
 
