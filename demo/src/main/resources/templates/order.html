@@ -135,12 +135,14 @@
 /* モーダル */
 .modal {
   display: none;
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 10;
   background: rgba(255,255,255,0.2);
   justify-content: center;
   align-items: center;
+  padding: 18px;
+  box-sizing: border-box;
 }
 
 .modal.active {
@@ -150,6 +152,8 @@
 .modal-box {
   width: 300px;
   min-height: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-sizing: border-box;
   background: #fff;
   border: 4px solid #777;
@@ -331,6 +335,7 @@ body {
   border: 0;
   border-radius: 0;
   overflow: visible;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .header {
@@ -367,10 +372,19 @@ body {
   overflow: visible;
 }
 
-#total-area,
-.menu-bar {
+#total-area {
   position: static;
   width: 100%;
+}
+
+.menu-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  z-index: 5;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
 </style>
 </head>
