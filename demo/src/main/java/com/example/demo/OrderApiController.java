@@ -2,6 +2,10 @@ package com.example.demo;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +34,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrderApiController {
 
 	private static final long DEFAULT_STORE_ID = 1L;
+
+	// Timestamps are generated here in Java rather than via SQL CURRENT_TIMESTAMP
+	// so they don't silently depend on the DB server's/OS's configured timezone
+	// matching JST (e.g. a container or cloud host defaulting to UTC).
+	private static final ZoneId JST = ZoneId.of("Asia/Tokyo");
+
+	private static Timestamp nowJst() {
+		return Timestamp.valueOf(LocalDateTime.now(JST));
+	}
 
 	// 1 cleaning-unhandled(清掃未対応), 2 call-unhandled(呼出未対応),
 	// 3 cleaning-needs-help(清掃要応援), 4 call-needs-help(呼出要応援),
@@ -101,8 +114,8 @@ public class OrderApiController {
 
 		long orderId = insertAndGetKey("""
 				INSERT INTO orders (table_session_id, ordered_at)
-				VALUES (?, CURRENT_TIMESTAMP)
-				""", sessionId);
+				VALUES (?, ?)
+				""", sessionId, nowJst());
 
 		for (CreateOrderItem item : items) {
 			Map<String, Object> product = product(item.productId());
@@ -137,6 +150,19 @@ public class OrderApiController {
 		}
 	}
 
+	/**
+	 * Returns how much course time is left. Elapsed time is computed in Java
+	 * against started_at using the same JST clock that wrote it (nowJst()),
+	 * rather than the DB server's own NOW()/CURRENT_TIMESTAMP - so this is
+	 * correct even if MySQL's session/system timezone isn't JST. Previously
+	 * this returned the raw started_at timestamp and let the browser compute
+	 * the countdown by comparing it against the client device's own
+	 * Date.now(); any skew between the client's clock/timezone and the
+	 * server's meant the displayed remaining time could be wrong. Returning a
+	 * relative "remainingSeconds" instead means the client only ever needs
+	 * its clock's *rate* (always accurate), not its absolute value, to tick
+	 * the countdown down.
+	 */
 	@GetMapping("/api/orders/session")
 	public Map<String, Object> session(@RequestParam int tableNumber, @RequestParam(required = false) String qrToken) {
 		requireValidQr(tableNumber, qrToken);
@@ -159,11 +185,24 @@ public class OrderApiController {
 		if (durationMinutes == null) {
 			return Map.of("hasCourse", false);
 		}
+		LocalDateTime startedAt = toLocalDateTime(row.get("started_at"));
+		long elapsedSeconds = Duration.between(startedAt, LocalDateTime.now(JST)).getSeconds();
+		long remainingSeconds = Math.max(0, durationMinutes * 60L - elapsedSeconds);
 		return Map.of(
 				"hasCourse", true,
 				"courseName", row.get("course_name"),
 				"durationMinutes", durationMinutes,
-				"startedAt", row.get("started_at").toString());
+				"remainingSeconds", remainingSeconds);
+	}
+
+	private static LocalDateTime toLocalDateTime(Object value) {
+		if (value instanceof LocalDateTime localDateTime) {
+			return localDateTime;
+		}
+		if (value instanceof Timestamp timestamp) {
+			return timestamp.toLocalDateTime();
+		}
+		throw new IllegalStateException("Unexpected timestamp type: " + value.getClass());
 	}
 
 	private Integer parseDurationMinutes(String duration) {
@@ -235,9 +274,9 @@ public class OrderApiController {
 		if (newDelivered + canceled >= quantity) {
 			jdbcTemplate.update("""
 					UPDATE order_items
-					SET delivered_quantity = ?, status = 'DELIVERED', completed_at = CURRENT_TIMESTAMP
+					SET delivered_quantity = ?, status = 'DELIVERED', completed_at = ?
 					WHERE id = ?
-					""", newDelivered, itemId);
+					""", newDelivered, nowJst(), itemId);
 		} else {
 			jdbcTemplate.update("""
 					UPDATE order_items
@@ -343,10 +382,11 @@ public class OrderApiController {
 		long groupId = ((Number) sessions.get(0).get("customer_group_id")).longValue();
 		Integer total = sessionTotal(sessionId);
 
-		jdbcTemplate.update("UPDATE table_sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?", sessionId);
+		Timestamp now = nowJst();
+		jdbcTemplate.update("UPDATE table_sessions SET ended_at = ? WHERE id = ?", now, sessionId);
 		jdbcTemplate.update("""
-				UPDATE customer_groups SET billing_status = 2, left_at = CURRENT_TIMESTAMP WHERE id = ?
-				""", groupId);
+				UPDATE customer_groups SET billing_status = 2, left_at = ? WHERE id = ?
+				""", now, groupId);
 		// 状態遷移表: 会計時、自動で「清掃未対応」になる
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
 				SEAT_STATUS_CODES.get("CLEANING_UNHANDLED"), tableId);
@@ -545,14 +585,15 @@ public class OrderApiController {
 		}
 
 		int initialGuestCount = (guestCount != null && guestCount > 0) ? guestCount : 1;
+		Timestamp now = nowJst();
 		long groupId = insertAndGetKey("""
 				INSERT INTO customer_groups (entered_at, billing_status, guest_count)
-				VALUES (CURRENT_TIMESTAMP, 1, ?)
-				""", initialGuestCount);
+				VALUES (?, 1, ?)
+				""", now, initialGuestCount);
 		long sessionId = insertAndGetKey("""
 				INSERT INTO table_sessions (customer_group_id, table_id, started_at, qr_code, secret_code)
-				VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)
-				""", groupId, tableId, UUID.randomUUID().toString(), generateSecretCode());
+				VALUES (?, ?, ?, ?, ?)
+				""", groupId, tableId, now, UUID.randomUUID().toString(), generateSecretCode());
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
 				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
 		return sessionId;

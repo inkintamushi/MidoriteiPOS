@@ -212,33 +212,62 @@
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
+  async function fetchRemainingSeconds(table) {
+    const session = await loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+    return session.hasCourse ? session.remainingSeconds : null;
+  }
+
   async function initRemainingTime() {
     const label = document.getElementById("remaining-time");
     if (!label) return;
     const table = tableNumber();
     if (!table) return;
 
-    let session;
+    let remainingSeconds;
     try {
-      session = await loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+      remainingSeconds = await fetchRemainingSeconds(table);
     } catch (e) {
       return;
     }
-    if (!session.hasCourse) return;
-
-    const endTime = new Date(session.startedAt).getTime() + session.durationMinutes * 60 * 1000;
+    if (remainingSeconds == null) return;
     label.style.display = "";
 
-    let timerId;
+    // endTime is re-derived from Date.now() each time we (re)sync with the
+    // server, so only the client clock's rate matters, never its absolute
+    // value/timezone. This keeps the countdown correct even if the device's
+    // clock is wrong, and the periodic resync below corrects for any drift
+    // that accumulates over a long course.
+    let endTime = Date.now() + remainingSeconds * 1000;
+    let tickId;
+    let resyncId;
+
+    const stop = () => {
+      clearInterval(tickId);
+      clearInterval(resyncId);
+    };
+
     const tick = () => {
       const remainingMs = endTime - Date.now();
       label.textContent = `残り時間：${formatRemaining(remainingMs)}`;
       if (remainingMs <= 0) {
-        clearInterval(timerId);
+        stop();
       }
     };
     tick();
-    timerId = setInterval(tick, 1000);
+    tickId = setInterval(tick, 1000);
+
+    resyncId = setInterval(async () => {
+      try {
+        const fresh = await fetchRemainingSeconds(table);
+        if (fresh == null) {
+          stop();
+          return;
+        }
+        endTime = Date.now() + fresh * 1000;
+      } catch (e) {
+        // keep counting down from the last known endTime if the resync fails
+      }
+    }, 30000);
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
