@@ -783,10 +783,13 @@ function buildGuidanceCodeData(tables, ninzu, planCode) {
   return `MDT-T${tableCode}-N${guestCode}-P${planCode}`;
 }
 
-function buildOrderQrUrl(tableNo) {
-  const url = new URL('/order', location.origin);
-  url.searchParams.set('table', tableNo);
-  return url.href;
+// Issues a real per-session qr token via the backend (table-management-db.js's
+// window.issueQr) instead of building the /order URL locally. A client-only
+// URL carries no token at all, so anyone who learned the table number could
+// order/checkout/call-staff for that table without ever scanning a QR code.
+async function issueOrderQrUrl(tableNo) {
+  const result = await window.issueQr(tableNo);
+  return result.orderUrl;
 }
 
 function renderGuidanceCodes(codeData, qrData) {
@@ -830,7 +833,7 @@ let guidanceQueue = [];
 let guidanceNinzu = 0;
 let guidancePlanCode = 0;
 
-function execAnnai() {
+async function execAnnai() {
   if (!isAnnaiInputComplete()) {
     updateAnnaiYesState();
     return;
@@ -859,7 +862,7 @@ function execAnnai() {
   // 印刷後、残りの選択卓があれば続けてQR/バーコードを表示するためのキュー
   guidanceQueue = checked.slice(1);
   const guidanceCodeData = buildGuidanceCodeData([checked[0]], guidanceNinzu, planCode);
-  renderGuidanceCodes(guidanceCodeData, buildOrderQrUrl(checked[0]));
+  renderGuidanceCodes(guidanceCodeData, await issueOrderQrUrl(checked[0]));
   const plan   = planEl ? planEl.value + 'プラン' : '（未選択）';
 
   // 人数
@@ -875,11 +878,11 @@ function execAnnai() {
 /* ========================================
    QR/バーコード印刷（残りの選択卓があれば続けて表示）
 ======================================== */
-function printGuidanceCode() {
+async function printGuidanceCode() {
   if (guidanceQueue.length > 0) {
     const nextTable = guidanceQueue.shift();
     const codeData = buildGuidanceCodeData([nextTable], guidanceNinzu, guidancePlanCode);
-    renderGuidanceCodes(codeData, buildOrderQrUrl(nextTable));
+    renderGuidanceCodes(codeData, await issueOrderQrUrl(nextTable));
     showScreen('s-qr');
   } else {
     showScreen('s-top');

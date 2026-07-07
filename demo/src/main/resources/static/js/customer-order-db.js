@@ -6,6 +6,10 @@
   let activeFilter = "all";
   let hideSoldOut = true;
 
+  const DEFAULT_ORDER_QTY_MAX = 30;
+  const ORDER_QTY_PER_GUEST = 3;
+  let orderQtyMax = DEFAULT_ORDER_QTY_MAX;
+
   // 飲み放題・食べ放題は「個数」ではなく「人数」で数える
   function isPlanCategory(category) {
     return category === "nomi" || category === "tabehoudai";
@@ -20,9 +24,44 @@
     return Number(localStorage.getItem("currentOrderTable") || 0);
   }
 
+  // 人数分の飲み放題/食べ放題プランが入っている卓は、その人数×3を注文数の上限にする
+  function getOrderQtyMax() {
+    const guestCounts = JSON.parse(localStorage.getItem("tableGuestCounts") || "{}");
+    const guestCount = parseInt(guestCounts[String(tableNumber())], 10);
+    if (Number.isInteger(guestCount) && guestCount > 0) {
+      return guestCount * ORDER_QTY_PER_GUEST;
+    }
+    return DEFAULT_ORDER_QTY_MAX;
+  }
+
+  function normalizeQty(value) {
+    const qty = parseInt(value, 10);
+    if (!Number.isInteger(qty) || qty < 1) {
+      return 1;
+    }
+    return Math.min(qty, orderQtyMax);
+  }
+
+  // The qr token proves this device scanned the table's current QR code;
+  // without sending it, the server rejects order/checkout/call-staff requests.
+  function qrToken() {
+    const fromUrl = new URLSearchParams(location.search).get("qr");
+    if (fromUrl) {
+      localStorage.setItem("currentOrderQr", fromUrl);
+      return fromUrl;
+    }
+    return localStorage.getItem("currentOrderQr") || "";
+  }
+
   async function loadJson(url, options) {
     const response = await fetch(url, options);
-    if (!response.ok) throw new Error(url);
+    if (!response.ok) {
+      let message = "";
+      try {
+        message = (await response.json()).message || "";
+      } catch (e) {}
+      throw new Error(message || `${url} (${response.status})`);
+    }
     return response.json();
   }
 
@@ -92,6 +131,8 @@
     document.getElementById("modal-img").alt = product.name;
     const qtyLabel = document.getElementById("qty-label");
     if (qtyLabel) qtyLabel.textContent = isPlanCategory(product.category) ? "人数:" : "個数:";
+    orderQtyMax = getOrderQtyMax();
+    qty.max = orderQtyMax;
     qty.value = 1;
     modal.classList.add("active");
   }
@@ -104,15 +145,23 @@
       return;
     }
     const qtyInput = document.getElementById("qty");
-    const qty = Math.max(1, Number(qtyInput.value || 1));
-    const result = await loadJson("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tableNumber: table,
-        items: [{ productId: selectedProduct.id, quantity: qty }]
-      })
-    });
+    const qty = normalizeQty(qtyInput.value);
+    let result;
+    try {
+      result = await loadJson("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableNumber: table,
+          qrToken: qrToken(),
+          items: [{ productId: selectedProduct.id, quantity: qty }]
+        })
+      });
+    } catch (e) {
+      document.getElementById("modal").classList.remove("active");
+      alert(e.message || "注文に失敗しました。");
+      return;
+    }
 
     pageTotal += Number(result.totalPrice || 0);
     document.getElementById("total-area").innerText = `合計：${pageTotal.toLocaleString()}円`;
@@ -126,21 +175,70 @@
 
   async function checkoutCall() {
     const table = tableNumber();
-    const result = await loadJson("/api/orders/checkout-call", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tableNumber: table })
-    });
+    let result;
+    try {
+      result = await loadJson("/api/orders/checkout-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumber: table, qrToken: qrToken() })
+      });
+    } catch (e) {
+      alert(e.message || "会計処理に失敗しました。");
+      return false;
+    }
     document.getElementById("payment-total").innerText = `会計：${Number(result.totalPrice || pageTotal).toLocaleString()}円`;
+    return true;
   }
 
   async function callStaff() {
     const table = tableNumber();
-    await loadJson("/api/orders/call-staff", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tableNumber: table })
-    });
+    try {
+      await loadJson("/api/orders/call-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumber: table, qrToken: qrToken() })
+      });
+    } catch (e) {
+      alert(e.message || "スタッフ呼出に失敗しました。");
+      return false;
+    }
+    return true;
+  }
+
+  function formatRemaining(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  async function initRemainingTime() {
+    const label = document.getElementById("remaining-time");
+    if (!label) return;
+    const table = tableNumber();
+    if (!table) return;
+
+    let session;
+    try {
+      session = await loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+    } catch (e) {
+      return;
+    }
+    if (!session.hasCourse) return;
+
+    const endTime = new Date(session.startedAt).getTime() + session.durationMinutes * 60 * 1000;
+    label.style.display = "";
+
+    let timerId;
+    const tick = () => {
+      const remainingMs = endTime - Date.now();
+      label.textContent = `残り時間：${formatRemaining(remainingMs)}`;
+      if (remainingMs <= 0) {
+        clearInterval(timerId);
+      }
+    };
+    tick();
+    timerId = setInterval(tick, 1000);
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -152,6 +250,7 @@
     const table = tableNumber();
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
+    initRemainingTime();
 
     const hideSoldOutCheckbox = document.getElementById("hide-sold-out");
     if (hideSoldOutCheckbox) {
@@ -162,17 +261,52 @@
       });
     }
 
+    const qtyInput = document.getElementById("qty");
+    if (qtyInput) {
+      qtyInput.addEventListener("input", () => {
+        const qty = parseInt(qtyInput.value, 10);
+        if (Number.isInteger(qty) && qty > orderQtyMax) {
+          qtyInput.value = orderQtyMax;
+        }
+      });
+      qtyInput.addEventListener("blur", () => {
+        qtyInput.value = normalizeQty(qtyInput.value);
+      });
+    }
+    const qtyMinus = document.getElementById("qty-minus");
+    const qtyPlus = document.getElementById("qty-plus");
+    if (qtyMinus) qtyMinus.onclick = () => { qtyInput.value = normalizeQty(normalizeQty(qtyInput.value) - 1); };
+    if (qtyPlus) qtyPlus.onclick = () => { qtyInput.value = normalizeQty(normalizeQty(qtyInput.value) + 1); };
+
+    document.getElementById("no").onclick = () => document.getElementById("modal").classList.remove("active");
+    document.getElementById("complete-ok").onclick = () => document.getElementById("complete-modal").classList.remove("active");
+
     document.getElementById("yes").onclick = submitOrder;
+    document.getElementById("account").onclick = () => {
+      document.getElementById("payment-total").innerText = `会計：${pageTotal.toLocaleString()}円`;
+      document.getElementById("payment-modal").classList.add("active");
+    };
+    document.getElementById("payment-no").onclick = () => document.getElementById("payment-modal").classList.remove("active");
+    document.getElementById("payment-ok").onclick = () => document.getElementById("payment-complete-modal").classList.remove("active");
     document.getElementById("payment-yes").onclick = async () => {
       document.getElementById("payment-modal").classList.remove("active");
-      await checkoutCall();
-      document.getElementById("payment-complete-modal").classList.add("active");
+      if (await checkoutCall()) {
+        document.getElementById("payment-complete-modal").classList.add("active");
+      }
     };
+
+    document.getElementById("call").onclick = () => document.getElementById("staff-call-modal").classList.add("active");
+    document.getElementById("staff-call-no").onclick = () => document.getElementById("staff-call-modal").classList.remove("active");
+    document.getElementById("staff-call-ok").onclick = () => document.getElementById("staff-call-complete-modal").classList.remove("active");
     document.getElementById("staff-call-yes").onclick = async () => {
       document.getElementById("staff-call-modal").classList.remove("active");
-      await callStaff();
-      document.getElementById("staff-call-complete-modal").classList.add("active");
+      if (await callStaff()) {
+        document.getElementById("staff-call-complete-modal").classList.add("active");
+      }
     };
+
+    document.getElementById("history").onclick = () => document.getElementById("history-modal").classList.add("active");
+    document.getElementById("history-no").onclick = () => document.getElementById("history-modal").classList.remove("active");
     document.getElementById("history-yes").onclick = () => {
       location.href = "/order_history";
     };

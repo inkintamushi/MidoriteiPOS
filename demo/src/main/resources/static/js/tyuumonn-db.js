@@ -83,7 +83,7 @@
       return;
     }
     const qty = Math.max(1, Number(document.getElementById("qty-input").value || 1));
-    await json("/api/orders", {
+    await json("/api/staff/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

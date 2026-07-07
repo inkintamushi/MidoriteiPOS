@@ -288,34 +288,9 @@ function orderTable(n) {
 }
 function historyTable(n) { location.href = 'rireki.html?table=' + n; }
 
-function buildOrderQrUrl(tableNo) {
-  const url = new URL('/order', location.origin);
-  url.searchParams.set('table', tableNo);
-  return url.href;
-}
-
-function reissueQr(tableNo) {
-  const qrUrl = buildOrderQrUrl(tableNo);
-  const qrBox = document.getElementById('qr-code-box');
-  const text = document.getElementById('qr-modal-text');
-
-  localStorage.setItem('currentOrderTable', tableNo);
-  text.textContent = `卓番号：${tableNo} / ${qrUrl}`;
-  qrBox.innerHTML = '';
-
-  if (window.QRCode) {
-    new QRCode(qrBox, {
-      text: qrUrl,
-      width: 160,
-      height: 160,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } else {
-    qrBox.textContent = qrUrl;
-  }
-
-  document.getElementById('qr-modal').classList.add('active');
-}
+// reissueQr(tableNo) is defined by table-management-db.js: it calls the
+// backend to mint a real per-session token, since a client-only URL (no
+// token) would let anyone who knows the table number order/checkout on it.
 
 function closeQrModal() {
   document.getElementById('qr-modal').classList.remove('active');

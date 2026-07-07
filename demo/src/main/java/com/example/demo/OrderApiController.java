@@ -11,9 +11,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 public class OrderApiController {
@@ -53,14 +57,44 @@ public class OrderApiController {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
+	// Spring's default error page omits the exception message from the JSON
+	// body unless server.error.include-message=always is set globally (which
+	// would also leak unrelated 500s). Handling it here keeps the QR-rejection
+	// message scoped to this controller while still reaching the customer UI.
+	@ExceptionHandler(ResponseStatusException.class)
+	public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
+		return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", String.valueOf(ex.getReason())));
+	}
+
+	/**
+	 * Customer-facing ordering endpoint, reached via the QR code printed/shown
+	 * at seating time (kyakuannnai.html) or reissued from taku.html/tyuumonn.html.
+	 * Requires the qr token to match the table's active session, otherwise anyone
+	 * who merely knows the table number could order/checkout/call-staff on it.
+	 */
 	@PostMapping("/api/orders")
 	@Transactional
 	public Map<String, Object> createOrder(@RequestBody CreateOrderRequest request) {
-		long tableId = ensureTableId(request.tableNumber());
+		requireValidQr(request.tableNumber(), request.qrToken());
+		return placeOrder(request.tableNumber(), request.items());
+	}
+
+	/**
+	 * Staff-facing ordering endpoint (tyuumonn.html), used from trusted in-store
+	 * devices that never have a QR token.
+	 */
+	@PostMapping("/api/staff/orders")
+	@Transactional
+	public Map<String, Object> createStaffOrder(@RequestBody CreateOrderRequest request) {
+		return placeOrder(request.tableNumber(), request.items());
+	}
+
+	private Map<String, Object> placeOrder(int tableNumber, List<CreateOrderItem> items) {
+		long tableId = ensureTableId(tableNumber);
 		long sessionId = ensureActiveTableSession(tableId, null);
 
 		int total = 0;
-		for (CreateOrderItem item : request.items()) {
+		for (CreateOrderItem item : items) {
 			Map<String, Object> product = product(item.productId());
 			total += ((Number) product.get("price")).intValue() * item.quantity();
 		}
@@ -70,7 +104,7 @@ public class OrderApiController {
 				VALUES (?, CURRENT_TIMESTAMP)
 				""", sessionId);
 
-		for (CreateOrderItem item : request.items()) {
+		for (CreateOrderItem item : items) {
 			Map<String, Object> product = product(item.productId());
 			jdbcTemplate.update("""
 					INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, status)
@@ -82,6 +116,62 @@ public class OrderApiController {
 				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
 
 		return Map.of("ok", true, "orderId", orderId, "totalPrice", total);
+	}
+
+	/**
+	 * Confirms the qr token presented by the customer matches the table's
+	 * currently active session. Without this, the token minted by issueQr was
+	 * never actually checked anywhere, so QR issuance/reissuance had no effect:
+	 * anyone who knew a table number could order, call staff, or trigger
+	 * checkout for that table, and reissuing a QR never invalidated the old one.
+	 */
+	private void requireValidQr(int tableNumber, String qrToken) {
+		Long tableId = findTableId(tableNumber);
+		List<String> activeTokens = tableId == null
+				? List.of()
+				: jdbcTemplate.queryForList("""
+						SELECT qr_code FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
+						""", String.class, tableId);
+		if (activeTokens.isEmpty() || qrToken == null || !activeTokens.get(0).equals(qrToken)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "QRコードが無効です。スタッフにお声がけください。");
+		}
+	}
+
+	@GetMapping("/api/orders/session")
+	public Map<String, Object> session(@RequestParam int tableNumber, @RequestParam(required = false) String qrToken) {
+		requireValidQr(tableNumber, qrToken);
+		Long tableId = findTableId(tableNumber);
+		if (tableId == null) {
+			return Map.of("hasCourse", false);
+		}
+		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+				SELECT ts.started_at, c.name AS course_name, c.duration
+				FROM table_sessions ts
+				JOIN customer_groups cg ON cg.id = ts.customer_group_id
+				JOIN courses c ON c.id = cg.course_id
+				WHERE ts.table_id = ? AND ts.ended_at IS NULL
+				""", tableId);
+		if (rows.isEmpty()) {
+			return Map.of("hasCourse", false);
+		}
+		Map<String, Object> row = rows.get(0);
+		Integer durationMinutes = parseDurationMinutes((String) row.get("duration"));
+		if (durationMinutes == null) {
+			return Map.of("hasCourse", false);
+		}
+		return Map.of(
+				"hasCourse", true,
+				"courseName", row.get("course_name"),
+				"durationMinutes", durationMinutes,
+				"startedAt", row.get("started_at").toString());
+	}
+
+	private Integer parseDurationMinutes(String duration) {
+		if (duration == null) {
+			return null;
+		}
+		java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+").matcher(duration);
+		return matcher.find() ? Integer.parseInt(matcher.group()) : null;
 	}
 
 	@GetMapping("/api/orders/history")
@@ -211,6 +301,7 @@ public class OrderApiController {
 
 	@PostMapping("/api/orders/checkout-call")
 	public Map<String, Object> checkoutCall(@RequestBody PayRequest request) {
+		requireValidQr(request.tableNumber(), request.qrToken());
 		Long tableId = findTableId(request.tableNumber());
 		if (tableId == null) {
 			return Map.of("ok", true, "totalPrice", 0);
@@ -223,6 +314,7 @@ public class OrderApiController {
 
 	@PostMapping("/api/orders/call-staff")
 	public Map<String, Object> callStaff(@RequestBody PayRequest request) {
+		requireValidQr(request.tableNumber(), request.qrToken());
 		Long tableId = findTableId(request.tableNumber());
 		if (tableId != null) {
 			jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
@@ -384,15 +476,19 @@ public class OrderApiController {
 		return ids.isEmpty() ? null : ids.get(0);
 	}
 
+	/**
+	 * Returns the table's current QR code, minting one only if its active
+	 * session doesn't have one yet. Re-displaying (previously called
+	 * "reissuing") must NOT replace an existing token: doing so silently broke
+	 * any QR the customer already had in hand (printed slip, phone tab, etc.).
+	 */
 	@PostMapping("/api/staff/tables/{tableNumber}/qr")
 	public Map<String, Object> issueQr(@PathVariable int tableNumber, HttpServletRequest request) {
 		long tableId = ensureTableId(tableNumber);
 		long sessionId = ensureActiveTableSession(tableId, null);
-		String token = UUID.randomUUID().toString();
-		String secretCode = generateSecretCode();
+		String token = jdbcTemplate.queryForObject(
+				"SELECT qr_code FROM table_sessions WHERE id = ?", String.class, sessionId);
 		String orderUrl = baseUrl(request) + "/order?table=" + tableNumber + "&qr=" + token;
-		jdbcTemplate.update("UPDATE table_sessions SET qr_code = ?, secret_code = ? WHERE id = ?",
-				token, secretCode, sessionId);
 		return Map.of("ok", true, "tableNumber", tableNumber, "token", token, "orderUrl", orderUrl);
 	}
 
@@ -493,13 +589,13 @@ public class OrderApiController {
 		return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port);
 	}
 
-	public record CreateOrderRequest(int tableNumber, List<CreateOrderItem> items) {
+	public record CreateOrderRequest(int tableNumber, String qrToken, List<CreateOrderItem> items) {
 	}
 
 	public record CreateOrderItem(long productId, int quantity) {
 	}
 
-	public record PayRequest(int tableNumber) {
+	public record PayRequest(int tableNumber, String qrToken) {
 	}
 
 	public record TableRequest(Integer guestCount, String status, Long courseId) {
