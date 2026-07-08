@@ -10,7 +10,7 @@
   let courseProducts = [];
 
   function isPlanCategory(code) {
-    return code === "nomi" || code === "tabehoudai";
+    return code === "nomi";
   }
 
   async function json(url, options) {
@@ -38,12 +38,6 @@
       button.onclick = isPlanCategory(category.code) ? () => goCourseList() : () => goCategory(category.code);
       grid.appendChild(button);
     });
-    const add = document.createElement("button");
-    add.className = "btn";
-    add.type = "button";
-    add.textContent = "カテゴリー追加";
-    add.onclick = goAddCategory;
-    grid.appendChild(add);
   }
 
   function renderProducts() {
@@ -160,21 +154,9 @@
     showOverlay("overlay-add-done");
   };
 
-  window.executeAddCategory = async function() {
-    const name = document.getElementById("new-category-name").value.trim();
-    if (!name) return;
-    await json("/api/admin/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name })
-    });
-    document.getElementById("category-done-name").textContent = "カテゴリ名：　" + name;
-    await loadData();
-    showOverlay("overlay-category-add-done");
-  };
 
   /* ========================================
-     コース管理（食べ放題／飲み放題の対象商品管理）
+     コース管理（飲み放題の対象商品管理）
   ======================================== */
   window.goCourseList = function() {
     const grid = document.getElementById("course-list-grid");

@@ -1,1 +1,44 @@
 設計書
+レジシステム_v20260702
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Maven
+demo/target/
+demo/.classpath
+demo/.project
+demo/.settings/
+demo/.myeclipse
+demo/.myeclipseweb
+
+# MySQL Data
+demo/mysql-data/
+demo/data/
+
+# Logs
+*.log
+logs/
+
+# Cache
+demo/.m2/
+__pycache__/
+.pytest_cache/
+pytest-cache-files-*/
+*.pyc
+*.pyo
+
+# Compiled
+*.class
+*.jar
+
+# Python
+venv/
+env/
+.env

@@ -19,12 +19,13 @@ INSERT INTO categories (code, name, display_order, active) VALUES
 ('tsukemono', '漬物', 50, TRUE),
 ('ippin', '一品', 60, TRUE),
 ('moriawase', '盛り合わせ', 70, TRUE),
-('tabehoudai', '食べ放題', 80, TRUE),
 ('nomi', '飲み放題', 90, TRUE)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   display_order = VALUES(display_order),
   active = VALUES(active);
+
+UPDATE categories SET active = FALSE WHERE code = 'tabehoudai';
 
 -- category_id is resolved via a scalar subquery on the stable `code`, so this
 -- doesn't depend on categories having been inserted in any particular order
@@ -49,8 +50,7 @@ INSERT INTO products (id, store_id, category_id, name, price, image_path, sold_o
 (17, 1, (SELECT id FROM categories WHERE code = 'tsukemono'), 'きゅうり浅漬け', 350, '/images/product7.jpg', FALSE, TRUE),
 (18, 1, (SELECT id FROM categories WHERE code = 'ippin'), '枝豆', 330, '/images/product1.jpg', FALSE, TRUE),
 (19, 1, (SELECT id FROM categories WHERE code = 'ippin'), '唐揚げ', 680, '/images/product4.jpg', FALSE, TRUE),
-(20, 1, (SELECT id FROM categories WHERE code = 'moriawase'), '焼き鳥盛り合わせ', 980, '/images/product3.jpg', FALSE, TRUE),
-(21, 1, (SELECT id FROM categories WHERE code = 'tabehoudai'), '食べ放題プラン', 2980, '/images/product6.jpg', FALSE, TRUE)
+(20, 1, (SELECT id FROM categories WHERE code = 'moriawase'), '焼き鳥盛り合わせ', 980, '/images/product3.jpg', FALSE, TRUE)
 ON DUPLICATE KEY UPDATE
   category_id = VALUES(category_id),
   name = VALUES(name),

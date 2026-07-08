@@ -2,9 +2,7 @@ package com.example.demo;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.text.Normalizer;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,25 +31,9 @@ public class ProductApiController {
 		return jdbcTemplate.queryForList("""
 				SELECT code, name, display_order, active
 				FROM categories
-				WHERE active = TRUE
+				WHERE active = TRUE AND code <> 'tabehoudai'
 				ORDER BY display_order, id
 				""");
-	}
-
-	@PostMapping("/api/admin/categories")
-	public Map<String, Object> addCategory(@RequestBody CategoryRequest request) {
-		String name = request.name().trim();
-		String code = request.code() == null || request.code().isBlank()
-				? toCategoryCode(name)
-				: request.code().trim();
-		Integer nextOrder = jdbcTemplate.queryForObject(
-				"SELECT COALESCE(MAX(display_order), 0) + 10 FROM categories", Integer.class);
-		jdbcTemplate.update("""
-				INSERT INTO categories (code, name, display_order, active)
-				VALUES (?, ?, ?, TRUE)
-				ON DUPLICATE KEY UPDATE name = VALUES(name), active = TRUE
-				""", code, name, nextOrder);
-		return Map.of("ok", true, "code", code, "name", name);
 	}
 
 	@GetMapping("/api/products")
@@ -60,7 +42,7 @@ public class ProductApiController {
 				SELECT p.id, p.name, c.code AS category, c.name AS category_name, p.price, p.image_path, p.sold_out, p.active
 				FROM products p
 				JOIN categories c ON c.id = p.category_id
-				WHERE p.active = TRUE AND c.active = TRUE AND p.store_id = ?
+				WHERE p.active = TRUE AND c.active = TRUE AND c.code <> 'tabehoudai' AND p.store_id = ?
 				ORDER BY c.display_order, p.id
 				""", DEFAULT_STORE_ID);
 	}
@@ -125,7 +107,7 @@ public class ProductApiController {
 				              WHERE cp.course_id = ? AND cp.product_id = p.id) AS included
 				FROM products p
 				JOIN categories c ON c.id = p.category_id
-				WHERE p.active = TRUE AND c.active = TRUE AND p.store_id = ?
+				WHERE p.active = TRUE AND c.active = TRUE AND c.code <> 'tabehoudai' AND p.store_id = ?
 				ORDER BY c.display_order, p.id
 				""", courseId, DEFAULT_STORE_ID);
 	}
@@ -149,23 +131,13 @@ public class ProductApiController {
 	}
 
 	private long resolveCategoryId(String code) {
-		List<Long> ids = jdbcTemplate.queryForList("SELECT id FROM categories WHERE code = ?", Long.class, code);
+		List<Long> ids = jdbcTemplate.queryForList("SELECT id FROM categories WHERE code = ? AND active = TRUE AND code <> 'tabehoudai'", Long.class, code);
 		if (ids.isEmpty()) {
 			throw new IllegalArgumentException("カテゴリが見つかりません: " + code);
 		}
 		return ids.get(0);
 	}
 
-	private String toCategoryCode(String name) {
-		String normalized = Normalizer.normalize(name, Normalizer.Form.NFKC)
-				.toLowerCase(Locale.ROOT)
-				.replaceAll("[^a-z0-9]+", "_")
-				.replaceAll("^_+|_+$", "");
-		return normalized.isBlank() ? "category_" + System.currentTimeMillis() : normalized;
-	}
-
-	public record CategoryRequest(String code, String name) {
-	}
 
 	public record ProductRequest(String name, String category, Integer price, String imagePath, Boolean soldOut) {
 	}

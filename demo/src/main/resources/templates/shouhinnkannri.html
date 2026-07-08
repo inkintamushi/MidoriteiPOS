@@ -309,46 +309,6 @@ body {
   font-size: 13px;
 }
 
-/* ===== カテゴリー追加フォーム ===== */
-.category-card {
-  width: min(300px, 88vw);
-  min-height: 410px;
-  max-height: 90vh;
-  overflow-y: auto;
-  background: #fff;
-  border: 3px solid #000;
-  border-radius: 40px;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 38px 20px 18px;
-  text-align: center;
-}
-
-.category-form-body,
-.category-done-body {
-  min-height: 230px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
-  font-size: 14px;
-}
-
-.category-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.category-input-row input {
-  width: 120px;
-  height: 30px;
-  border: 1px solid #999;
-  padding: 4px;
-}
 
 </style>
 <link rel="stylesheet" href="/css/employee-auth.css">
@@ -382,9 +342,7 @@ body {
         <button class="btn">漬物</button>
         <button class="btn">一品</button>
         <button class="btn">盛り合わせ</button>
-        <button class="btn">食べ放題</button>
         <button class="btn">飲み放題</button>
-        <button class="btn" onclick="goAddCategory()">カテゴリー追加</button>
       </div>
     </div>
   </div>
@@ -481,7 +439,6 @@ body {
           <option value="アルコール">アルコール</option>
           <option value="焼き鳥">焼き鳥</option>
           <option value="飲み放題">飲み放題</option>
-          <option value="食べ放題">食べ放題</option>
         </select>
       </div>
       <div class="nomihoudai-row">
@@ -519,40 +476,7 @@ body {
   </div>
 
   <!-- ============================================================
-       画面7: カテゴリー追加入力（オーバーレイ）
-  ============================================================ -->
-  <div id="overlay-category-add" class="overlay">
-    <div class="category-card">
-      <div class="confirm-title">カテゴリー追加</div>
-      <div class="category-form-body">
-        <div class="category-input-row">
-          <span>カテゴリ名：</span>
-          <input type="text" id="new-category-name">
-        </div>
-      </div>
-      <div class="confirm-buttons">
-        <button class="modal-btn" onclick="closeAddCategory()">No</button>
-        <button class="modal-btn" onclick="executeAddCategory()">Yes</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================
-       画面8: カテゴリー追加完了（オーバーレイ）
-  ============================================================ -->
-  <div id="overlay-category-add-done" class="overlay">
-    <div class="category-card">
-      <div class="done-title">カテゴリー追加</div>
-      <div class="category-done-body">
-        <p id="category-done-name">カテゴリ名：</p>
-        <p>カテゴリー追加<br>を完了いたしました。</p>
-      </div>
-      <button class="ok-btn" onclick="finishAddCategory()">ok</button>
-    </div>
-  </div>
-
-  <!-- ============================================================
-       画面9: コース管理画面（食べ放題／飲み放題）
+       画面7: コース管理画面（飲み放題）
   ============================================================ -->
   <div id="screen-course-list" class="screen">
     <div class="content-area">
@@ -766,42 +690,6 @@ function finishAdd() {
   showScreen('screen-list');
 }
 
-/* ========================================
-   カテゴリー追加
-======================================== */
-function goAddCategory() {
-  document.getElementById('new-category-name').value = '';
-  showOverlay('overlay-category-add');
-}
-
-function closeAddCategory() {
-  closeAllOverlays();
-}
-
-function executeAddCategory() {
-  const categoryName = document.getElementById('new-category-name').value.trim();
-  if (!categoryName) return;
-
-  const grid = document.querySelector('#screen-list .grid');
-  const exists = [...grid.querySelectorAll('button')]
-    .some(btn => btn.textContent.trim() === categoryName);
-
-  if (!exists) {
-    const button = document.createElement('button');
-    button.className = 'btn';
-    button.type = 'button';
-    button.textContent = categoryName;
-    grid.insertBefore(button, grid.lastElementChild);
-  }
-
-  document.getElementById('category-done-name').textContent = 'カテゴリ名：　' + categoryName;
-  showOverlay('overlay-category-add-done');
-}
-
-function finishAddCategory() {
-  closeAllOverlays();
-  showScreen('screen-list');
-}
 </script>
 <script src="/js/product-management-db.js"></script>
 

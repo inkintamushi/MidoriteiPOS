@@ -10,9 +10,9 @@
   const ORDER_QTY_PER_GUEST = 3;
   let orderQtyMax = DEFAULT_ORDER_QTY_MAX;
 
-  // 飲み放題・食べ放題は「個数」ではなく「人数」で数える
+  // 飲み放題は「個数」ではなく「人数」で数える
   function isPlanCategory(category) {
-    return category === "nomi" || category === "tabehoudai";
+    return category === "nomi";
   }
 
   function tableNumber() {
@@ -24,7 +24,7 @@
     return Number(localStorage.getItem("currentOrderTable") || 0);
   }
 
-  // 人数分の飲み放題/食べ放題プランが入っている卓は、その人数×3を注文数の上限にする
+  // 人数分の飲み放題プランが入っている卓は、その人数×3を注文数の上限にする
   function getOrderQtyMax() {
     const guestCounts = JSON.parse(localStorage.getItem("tableGuestCounts") || "{}");
     const guestCount = parseInt(guestCounts[String(tableNumber())], 10);
