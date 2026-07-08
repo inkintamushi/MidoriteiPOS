@@ -17,10 +17,10 @@
 
 ## 動作環境
 
-- JDK 23 が必要(`demo/pom.xml` の `java.version` が 23 指定)。
-  - `mvnw -version` で使われる Java のバージョンを確認できる。23 未満の JDK がデフォルトになっている場合は、実行時に一時的に `JAVA_HOME` を JDK 23 に向ける。
+- JDK 25 が必要(`demo/pom.xml` の `java.version` が 25 指定)。
+  - `mvnw -version` で使われる Java のバージョンを確認できる。25 未満の JDK がデフォルトになっている場合は、実行時に一時的に `JAVA_HOME` を JDK 25 に向ける。
     ```powershell
-    $env:JAVA_HOME = "C:\Program Files\Java\jdk-23"
+    $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot"
     ```
 - Maven は Wrapper 同梱のため別途インストール不要。
 
@@ -32,7 +32,7 @@
 
 ```powershell
 cd demo
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-23"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot"
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
@@ -54,7 +54,7 @@ cp .env.example .env
 
 ```powershell
 cd demo
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-23"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot"
 .\mvnw.cmd spring-boot:run
 ```
 
