@@ -131,12 +131,27 @@
     window.execIdou = async function() {
       const from = document.getElementById("idou-from")?.value;
       const to = document.getElementById("idou-to")?.value;
-      if (from && to) {
-        await fetch("/api/staff/tables/move", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fromTableNumber: Number(from), toTableNumber: Number(to) })
-        });
+      if (!from || !to) {
+        alert("移動する卓番号と移動先の卓番号を選択してください。");
+        return;
+      }
+      if (from === to) {
+        alert("移動元と移動先には別の卓を選択してください。");
+        return;
+      }
+      const response = await fetch("/api/staff/tables/move", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromTableNumber: Number(from), toTableNumber: Number(to) })
+      });
+      if (!response.ok) {
+        alert("卓移動に失敗しました。");
+        return;
+      }
+      const result = await response.json();
+      if (result.ok === false) {
+        alert(result.message || "卓移動できません。");
+        return;
       }
       originalExecIdou();
     };
@@ -147,12 +162,27 @@
     window.execKoukan = async function() {
       const a = document.getElementById("koukan-a")?.value;
       const b = document.getElementById("koukan-b")?.value;
-      if (a && b) {
-        await fetch("/api/staff/tables/swap", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tableNumberA: Number(a), tableNumberB: Number(b) })
-        });
+      if (!a || !b) {
+        alert("交換する卓番号を選択してください。");
+        return;
+      }
+      if (a === b) {
+        alert("別の卓を選択してください。");
+        return;
+      }
+      const response = await fetch("/api/staff/tables/swap", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumberA: Number(a), tableNumberB: Number(b) })
+      });
+      if (!response.ok) {
+        alert("卓交換に失敗しました。");
+        return;
+      }
+      const result = await response.json();
+      if (result.ok === false) {
+        alert(result.message || "卓交換できません。");
+        return;
       }
       originalExecKoukan();
     };

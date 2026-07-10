@@ -107,9 +107,22 @@ public class OrderApiController {
 		long sessionId = ensureActiveTableSession(tableId, null);
 
 		int total = 0;
+		List<OrderLine> orderLines = new ArrayList<>();
 		for (CreateOrderItem item : items) {
+			if (item.quantity() <= 0) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "数量は1以上を指定してください。");
+			}
 			Map<String, Object> product = product(item.productId());
-			total += ((Number) product.get("price")).intValue() * item.quantity();
+			Map<String, Object> course = selectedCourse(product, item.courseId());
+			String productName = String.valueOf(product.get("name"));
+			int unitPrice = ((Number) product.get("price")).intValue();
+			if (course != null) {
+				productName = productName + "（" + course.get("name") + "）";
+				unitPrice = ((Number) course.get("price")).intValue();
+				updateSessionCourse(sessionId, ((Number) course.get("id")).longValue());
+			}
+			orderLines.add(new OrderLine(item.productId(), productName, item.quantity(), unitPrice));
+			total += unitPrice * item.quantity();
 		}
 
 		long orderId = insertAndGetKey("""
@@ -117,14 +130,12 @@ public class OrderApiController {
 				VALUES (?, ?)
 				""", sessionId, nowJst());
 
-		for (CreateOrderItem item : items) {
-			Map<String, Object> product = product(item.productId());
+		for (OrderLine line : orderLines) {
 			jdbcTemplate.update("""
 					INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, status)
 					VALUES (?, ?, ?, ?, ?, 'ORDERED')
-					""", orderId, item.productId(), product.get("name"), item.quantity(), product.get("price"));
+					""", orderId, line.productId(), line.productName(), line.quantity(), line.unitPrice());
 		}
-
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
 				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
 
@@ -225,6 +236,7 @@ public class OrderApiController {
 					JOIN dining_tables t ON t.id = ts.table_id
 					JOIN order_items i ON i.order_id = o.id
 					WHERE t.store_id = ?
+				  AND i.quantity > i.canceled_quantity
 					ORDER BY o.ordered_at DESC, i.id
 					""", DEFAULT_STORE_ID);
 		}
@@ -237,6 +249,7 @@ public class OrderApiController {
 				JOIN dining_tables t ON t.id = ts.table_id
 				JOIN order_items i ON i.order_id = o.id
 				WHERE t.store_id = ? AND t.table_number = ? AND ts.ended_at IS NULL
+				  AND i.quantity > i.canceled_quantity
 				ORDER BY o.ordered_at DESC, i.id
 				""", DEFAULT_STORE_ID, tableNumber);
 	}
@@ -534,14 +547,36 @@ public class OrderApiController {
 
 	private Map<String, Object> product(long productId) {
 		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
-				SELECT id, name, price
-				FROM products
-				WHERE id = ? AND store_id = ? AND active = TRUE AND sold_out = FALSE
+				SELECT p.id, p.name, p.price, c.code AS category
+				FROM products p
+				JOIN categories c ON c.id = p.category_id
+				WHERE p.id = ? AND p.store_id = ? AND p.active = TRUE AND p.sold_out = FALSE
 				""", productId, DEFAULT_STORE_ID);
 		if (rows.isEmpty()) {
 			throw new IllegalArgumentException("商品が注文できません: " + productId);
 		}
 		return rows.get(0);
+	}
+
+	private Map<String, Object> selectedCourse(Map<String, Object> product, Long courseId) {
+		if (courseId == null || !"nomi".equals(product.get("category"))) {
+			return null;
+		}
+		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+				SELECT id, name, price, duration
+				FROM courses
+				WHERE id = ?
+				""", courseId);
+		if (rows.isEmpty()) {
+			throw new IllegalArgumentException("コースが選択できません: " + courseId);
+		}
+		return rows.get(0);
+	}
+
+	private void updateSessionCourse(long sessionId, long courseId) {
+		Long groupId = jdbcTemplate.queryForObject(
+				"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
+		jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", courseId, groupId);
 	}
 
 	private long ensureTableId(int tableNumber) {
@@ -630,10 +665,13 @@ public class OrderApiController {
 		return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port);
 	}
 
+	private record OrderLine(long productId, String productName, int quantity, int unitPrice) {
+	}
+
 	public record CreateOrderRequest(int tableNumber, String qrToken, List<CreateOrderItem> items) {
 	}
 
-	public record CreateOrderItem(long productId, int quantity) {
+	public record CreateOrderItem(long productId, int quantity, Long courseId) {
 	}
 
 	public record PayRequest(int tableNumber, String qrToken) {

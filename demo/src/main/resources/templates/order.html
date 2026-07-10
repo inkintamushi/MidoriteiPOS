@@ -196,6 +196,27 @@
   margin-bottom: 10px;
 }
 
+.plan-select-row {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #555;
+  font-weight: bold;
+}
+
+#plan-select {
+  min-width: 170px;
+  height: 38px;
+  border: 2px solid #d0d0d0;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  font-weight: bold;
+  padding: 0 8px;
+}
+
 .qty-row {
   display: flex;
   align-items: center;
@@ -511,6 +532,11 @@ body {
 
     <div id="modal-name" class="modal-name"></div>
 
+    <label id="plan-select-row" class="plan-select-row">
+      <span>プラン:</span>
+      <select id="plan-select"></select>
+    </label>
+
     <label class="qty-row">
       <span id="qty-label">個数:</span>
       <span class="qty-control">
@@ -573,7 +599,6 @@ body {
       <div>そのまま卓にてお待ちください。</div>
     </div>
 
-    <button id="payment-ok" class="complete-ok" type="button">ok</button>
   </div>
 </div>
 

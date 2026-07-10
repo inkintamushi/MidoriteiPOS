@@ -130,11 +130,12 @@
     const price = Number(document.getElementById("new-price").value.trim());
     const category = document.getElementById("new-category").value;
     const nomihoudai = document.getElementById("new-nomihoudai")?.value || "なし";
+    const imagePath = typeof addImageDataUrl === "string" ? addImageDataUrl : "";
     if (!name || !price || !category) return;
     const result = await json("/api/admin/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price, category })
+      body: JSON.stringify({ name, price, category, imagePath })
     });
 
     // 飲み放題区分で選択されたコースに、追加した商品を対象商品として登録する
@@ -146,6 +147,16 @@
       }
     }
 
+    const doneImg = document.getElementById("add-done-img");
+    if (doneImg) {
+      if (imagePath) {
+        doneImg.src = imagePath;
+        doneImg.style.display = "block";
+      } else {
+        doneImg.removeAttribute("src");
+        doneImg.style.display = "none";
+      }
+    }
     document.getElementById("add-done-name").textContent = "商品名：" + name;
     document.getElementById("add-done-price").textContent = "商品価格：" + price + "円";
     document.getElementById("add-done-category").textContent = "カテゴリー：" + categories.find(c => c.code === category)?.name;
