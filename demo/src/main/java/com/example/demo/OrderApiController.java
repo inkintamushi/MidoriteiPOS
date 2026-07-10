@@ -187,7 +187,7 @@ public class OrderApiController {
 			return Map.of("hasCourse", false);
 		}
 		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
-				SELECT ts.started_at, c.name AS course_name, c.duration
+				SELECT ts.started_at, c.id AS course_id, c.name AS course_name, c.duration
 				FROM table_sessions ts
 				JOIN customer_groups cg ON cg.id = ts.customer_group_id
 				JOIN courses c ON c.id = cg.course_id
@@ -204,11 +204,16 @@ public class OrderApiController {
 		LocalDateTime startedAt = toLocalDateTime(row.get("started_at"));
 		long elapsedSeconds = Duration.between(startedAt, LocalDateTime.now(JST)).getSeconds();
 		long remainingSeconds = Math.max(0, durationMinutes * 60L - elapsedSeconds);
+		long courseId = ((Number) row.get("course_id")).longValue();
+		// 注文画面でコース対象商品を0円表示するために、対象商品idを併せて返す
+		List<Long> freeProductIds = jdbcTemplate.queryForList(
+				"SELECT product_id FROM course_products WHERE course_id = ?", Long.class, courseId);
 		return Map.of(
 				"hasCourse", true,
 				"courseName", row.get("course_name"),
 				"durationMinutes", durationMinutes,
-				"remainingSeconds", remainingSeconds);
+				"remainingSeconds", remainingSeconds,
+				"freeProductIds", freeProductIds);
 	}
 
 	private static LocalDateTime toLocalDateTime(Object value) {

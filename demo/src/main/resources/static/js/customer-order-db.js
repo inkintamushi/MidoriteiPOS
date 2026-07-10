@@ -5,6 +5,7 @@
   let pageTotal = 0;
   let activeFilter = "all";
   let hideSoldOut = true;
+  let courseFreeProductIds = new Set();
 
   const DEFAULT_ORDER_QTY_MAX = 30;
   const ORDER_QTY_PER_GUEST = 3;
@@ -133,12 +134,16 @@
       const isPlan = isPlanCategory(product.category);
       const disabled = product.sold_out || isPlan;
       const buttonLabel = product.sold_out ? "品切れ" : (isPlan ? "案内時に選択済み" : "注文");
+      // 利用中のコースに含まれる商品(course_products)は、コース料金に含まれ
+      // 個別課金されない(サーバー側のisCourseProductと同じ判定)ため0円と表示する。
+      const isCoursePriceFree = courseFreeProductIds.has(Number(product.id));
+      const priceLabel = isCoursePriceFree ? "0円" : `${Number(product.price).toLocaleString()}円`;
       card.innerHTML = `
         <div class="image">
           <img src="${product.image_path}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
         </div>
         <div class="name">${product.name}</div>
-        <div class="price">${Number(product.price).toLocaleString()}円</div>
+        <div class="price">${priceLabel}</div>
         <button class="order-btn" type="button" ${disabled ? "disabled" : ""}>${buttonLabel}</button>
       `;
       if (!disabled) {
@@ -235,9 +240,23 @@
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
+  async function fetchSession(table) {
+    return loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+  }
+
   async function fetchRemainingSeconds(table) {
-    const session = await loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+    const session = await fetchSession(table);
     return session.hasCourse ? session.remainingSeconds : null;
+  }
+
+  async function loadCourseFreeProductIds(table) {
+    if (!table) return;
+    try {
+      const session = await fetchSession(table);
+      courseFreeProductIds = new Set((session.hasCourse ? session.freeProductIds : []) || []);
+    } catch (e) {
+      courseFreeProductIds = new Set();
+    }
   }
 
   async function initRemainingTime() {
@@ -296,10 +315,11 @@
   document.addEventListener("DOMContentLoaded", async () => {
     categories = await loadJson("/api/categories");
     products = await loadJson("/api/products");
+    const table = tableNumber();
+    await loadCourseFreeProductIds(table);
     renderCategories();
     renderProducts();
 
-    const table = tableNumber();
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
     initRemainingTime();
