@@ -3,8 +3,13 @@
     return Number(new URLSearchParams(location.search).get("table") || localStorage.getItem("currentOrderTable") || 0);
   }
 
+  function qrToken() {
+    return new URLSearchParams(location.search).get("qr") || localStorage.getItem("currentOrderQr") || "";
+  }
+
   document.addEventListener("DOMContentLoaded", async () => {
     const table = tableNumber();
+    const qr = qrToken();
     const url = table ? `/api/orders/history?tableNumber=${table}` : "/api/orders/history";
     const rows = await (await fetch(url)).json();
     const body = document.getElementById("history-body");
@@ -29,7 +34,11 @@
     empty.style.display = rows.length ? "none" : "block";
     total.textContent = `合計：${grandTotal.toLocaleString()}円`;
     document.getElementById("order-nav").onclick = () => {
-      location.href = table ? `/order?table=${table}` : "/order";
+      const params = new URLSearchParams();
+      if (table) params.set("table", table);
+      if (qr) params.set("qr", qr);
+      const query = params.toString();
+      location.href = query ? `/order?${query}` : "/order";
     };
   });
 })();

@@ -382,7 +382,13 @@
     document.getElementById("history").onclick = () => document.getElementById("history-modal").classList.add("active");
     document.getElementById("history-no").onclick = () => document.getElementById("history-modal").classList.remove("active");
     document.getElementById("history-yes").onclick = () => {
-      location.href = "/order_history";
+      const params = new URLSearchParams();
+      const table = tableNumber();
+      const qr = qrToken();
+      if (table) params.set("table", table);
+      if (qr) params.set("qr", qr);
+      const query = params.toString();
+      location.href = query ? `/order_history?${query}` : "/order_history";
     };
   });
 })();
