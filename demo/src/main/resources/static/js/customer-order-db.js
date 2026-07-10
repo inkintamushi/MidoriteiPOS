@@ -65,6 +65,26 @@
     return response.json();
   }
 
+  // 合計は自分がこのページで注文した分をその場で足し込むのではなく、毎回サーバーの
+  // 注文履歴(現在のセッションの全明細)から算出し直す。案内時に自動計上されるコース料金や、
+  // 他画面からの注文・キャンセルもここに反映される(order_history.htmlの集計と同じロジック)。
+  async function refreshTotal() {
+    const table = tableNumber();
+    const totalArea = document.getElementById("total-area");
+    if (!table || !totalArea) return;
+    let rows;
+    try {
+      rows = await loadJson(`/api/orders/history?tableNumber=${table}`);
+    } catch (e) {
+      return;
+    }
+    pageTotal = rows.reduce((sum, item) => {
+      const qty = Number(item.qty || 0) - Number(item.canceled_quantity || 0);
+      return sum + qty * Number(item.unit_price || 0);
+    }, 0);
+    totalArea.innerText = `合計：${pageTotal.toLocaleString()}円`;
+  }
+
   function renderCategories() {
     const bar = document.querySelector(".category-bar");
     if (!bar) return;
@@ -151,9 +171,8 @@
     }
     const qtyInput = document.getElementById("qty");
     const qty = normalizeQty(qtyInput.value);
-    let result;
     try {
-      result = await loadJson("/api/orders", {
+      await loadJson("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -168,8 +187,7 @@
       return;
     }
 
-    pageTotal += Number(result.totalPrice || 0);
-    document.getElementById("total-area").innerText = `合計：${pageTotal.toLocaleString()}円`;
+    await refreshTotal();
     document.getElementById("modal").classList.remove("active");
     document.getElementById("complete-name").innerText = selectedProduct.name;
     document.getElementById("complete-qty").innerText = `個数：${qty}`;
@@ -285,6 +303,7 @@
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
     initRemainingTime();
+    refreshTotal();
 
     const hideSoldOutCheckbox = document.getElementById("hide-sold-out");
     if (hideSoldOutCheckbox) {
@@ -316,7 +335,8 @@
     document.getElementById("complete-ok").onclick = () => document.getElementById("complete-modal").classList.remove("active");
 
     document.getElementById("yes").onclick = submitOrder;
-    document.getElementById("account").onclick = () => {
+    document.getElementById("account").onclick = async () => {
+      await refreshTotal();
       document.getElementById("payment-total").innerText = `会計：${pageTotal.toLocaleString()}円`;
       document.getElementById("payment-modal").classList.add("active");
     };

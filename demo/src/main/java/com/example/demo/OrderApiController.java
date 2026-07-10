@@ -671,7 +671,14 @@ public class OrderApiController {
 		jdbcTemplate.update(connection -> {
 			PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 			for (int i = 0; i < args.length; i++) {
-				ps.setObject(i + 1, args[i]);
+				// setObject(index, null) is ambiguous without a type and some drivers
+				// (H2, used by the local dev profile) reject it outright, unlike MySQL's
+				// lenient handling. course_id is the first nullable arg this helper sees.
+				if (args[i] == null) {
+					ps.setNull(i + 1, java.sql.Types.NULL);
+				} else {
+					ps.setObject(i + 1, args[i]);
+				}
 			}
 			return ps;
 		}, keyHolder);
