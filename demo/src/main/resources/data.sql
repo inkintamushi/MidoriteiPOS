@@ -66,6 +66,13 @@ ON DUPLICATE KEY UPDATE
   price = VALUES(price),
   duration = VALUES(duration);
 
+INSERT IGNORE INTO course_products (course_id, product_id) VALUES
+((SELECT id FROM courses WHERE name = 'ノーマル'), (SELECT id FROM products WHERE store_id = 1 AND name = 'ビール')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = '日本酒')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = 'ビール')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = 'ハイボール')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = 'レモンサワー'));
+
 -- seat_status: old EMPTY -> 7 (available), old STOPPED -> 8 (out-of-service)
 INSERT INTO dining_tables (store_id, table_number, seat_status) VALUES
 (1, 1, 7),
