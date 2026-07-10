@@ -385,6 +385,10 @@ body {
           <input type="radio" name="action" id="radio-soldout" onchange="clearPrice()">
         </div>
         <div class="radio-row">
+          <span>販売中に戻す</span>
+          <input type="radio" name="action" id="radio-available" onchange="clearPrice()">
+        </div>
+        <div class="radio-row">
           <span>商品削除</span>
           <input type="radio" name="action" id="radio-delete" onchange="clearPrice()">
         </div>
@@ -580,6 +584,7 @@ function openConfirmEdit(name) {
   document.getElementById('edit-name').textContent = '商品名：' + name;
   // ラジオ・価格リセット
   document.getElementById('radio-soldout').checked = false;
+  document.getElementById('radio-available').checked = false;
   document.getElementById('radio-delete').checked = false;
   document.getElementById('price-input').value = '';
   showOverlay('overlay-confirm');
@@ -593,6 +598,7 @@ function onPriceInput() {
   const val = document.getElementById('price-input').value;
   if (val !== '') {
     document.getElementById('radio-soldout').checked = false;
+    document.getElementById('radio-available').checked = false;
     document.getElementById('radio-delete').checked = false;
   }
 }
@@ -604,6 +610,7 @@ function clearPrice() {
 function executeEdit() {
   const name = document.getElementById('edit-name').textContent;
   const soldout = document.getElementById('radio-soldout').checked;
+  const available = document.getElementById('radio-available').checked;
   const del = document.getElementById('radio-delete').checked;
   const price = document.getElementById('price-input').value.trim();
 
@@ -611,6 +618,9 @@ function executeEdit() {
 
   if (soldout) {
     document.getElementById('done-line1').textContent = '商品売切';
+    document.getElementById('done-line2').textContent = 'を完了いたしました。';
+  } else if (available) {
+    document.getElementById('done-line1').textContent = '販売中に戻す';
     document.getElementById('done-line2').textContent = 'を完了いたしました。';
   } else if (del) {
     document.getElementById('done-line1').textContent = '商品削除';

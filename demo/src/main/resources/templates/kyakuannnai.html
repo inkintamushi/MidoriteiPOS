@@ -556,6 +556,9 @@ body {
             <input id="guidance-print-count" type="number" value="1" min="1">
             <button class="print-btn" onclick="printGuidanceCode()">印刷</button>
           </div>
+          <div style="text-align:center; margin-top:10px;">
+            <button class="green-btn back" onclick="backToGuidanceHome()">戻る</button>
+          </div>
         </div>
       </div>
     </div>
@@ -780,6 +783,22 @@ function showScreen(id) {
   }
 }
 
+function resetAnnaiForm() {
+  document.querySelectorAll('input[name="taku"]').forEach(input => { input.checked = false; });
+  document.querySelectorAll('input[name="plan"]').forEach(input => { input.checked = false; });
+  const ninzu = document.getElementById('ninzu');
+  if (ninzu) ninzu.value = '';
+  guidanceQueue = [];
+  guidanceNinzu = 0;
+  guidancePlanCode = 0;
+  updateAnnaiYesState();
+}
+
+function backToGuidanceHome() {
+  resetAnnaiForm();
+  showScreen('s-top');
+}
+
 function buildGuidanceCodeData(tables, ninzu, planCode) {
   const tableCode = tables.length ? tables.join('-') : 'NONE';
   const guestCode = parseInt(ninzu, 10) || 0;
@@ -917,7 +936,7 @@ async function printGuidanceCode() {
     renderGuidanceCodes(nextTable, codeData, await issueOrderQrUrl(nextTable));
     showScreen('s-qr');
   } else {
-    showScreen('s-top');
+    backToGuidanceHome();
   }
 }
 

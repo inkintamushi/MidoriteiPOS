@@ -114,12 +114,15 @@ public class OrderApiController {
 			}
 			Map<String, Object> product = product(item.productId());
 			Map<String, Object> course = selectedCourse(product, item.courseId());
+			boolean includedInCourse = course == null && isIncludedInActiveCourse(sessionId, item.productId());
 			String productName = String.valueOf(product.get("name"));
 			int unitPrice = ((Number) product.get("price")).intValue();
 			if (course != null) {
 				productName = productName + "（" + course.get("name") + "）";
 				unitPrice = ((Number) course.get("price")).intValue();
 				updateSessionCourse(sessionId, ((Number) course.get("id")).longValue());
+			} else if (includedInCourse) {
+				unitPrice = 0;
 			}
 			orderLines.add(new OrderLine(item.productId(), productName, item.quantity(), unitPrice));
 			total += unitPrice * item.quantity();
@@ -182,7 +185,7 @@ public class OrderApiController {
 			return Map.of("hasCourse", false);
 		}
 		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
-				SELECT ts.started_at, c.name AS course_name, c.duration
+				SELECT ts.started_at, c.id AS course_id, c.name AS course_name, c.duration
 				FROM table_sessions ts
 				JOIN customer_groups cg ON cg.id = ts.customer_group_id
 				JOIN courses c ON c.id = cg.course_id
@@ -199,11 +202,16 @@ public class OrderApiController {
 		LocalDateTime startedAt = toLocalDateTime(row.get("started_at"));
 		long elapsedSeconds = Duration.between(startedAt, LocalDateTime.now(JST)).getSeconds();
 		long remainingSeconds = Math.max(0, durationMinutes * 60L - elapsedSeconds);
+		long courseId = ((Number) row.get("course_id")).longValue();
+		List<Long> includedProductIds = jdbcTemplate.queryForList(
+				"SELECT product_id FROM course_products WHERE course_id = ?", Long.class, courseId);
 		return Map.of(
 				"hasCourse", true,
+				"courseId", courseId,
 				"courseName", row.get("course_name"),
 				"durationMinutes", durationMinutes,
-				"remainingSeconds", remainingSeconds);
+				"remainingSeconds", remainingSeconds,
+				"includedProductIds", includedProductIds);
 	}
 
 	private static LocalDateTime toLocalDateTime(Object value) {
@@ -456,11 +464,9 @@ public class OrderApiController {
 
 		if (seatStatus != null && seatStatus.equals(SEAT_STATUS_CODES.get("OCCUPIED"))) {
 			long sessionId = ensureActiveTableSession(tableId, request.guestCount());
-			if (request.courseId() != null) {
-				Long groupId = jdbcTemplate.queryForObject(
-						"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
-				jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", request.courseId(), groupId);
-			}
+			Long groupId = jdbcTemplate.queryForObject(
+					"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
+			jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", request.courseId(), groupId);
 		} else if (request.guestCount() != null) {
 			List<Long> activeGroupIds = jdbcTemplate.queryForList("""
 					SELECT customer_group_id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
@@ -556,6 +562,18 @@ public class OrderApiController {
 			throw new IllegalArgumentException("商品が注文できません: " + productId);
 		}
 		return rows.get(0);
+	}
+
+	private boolean isIncludedInActiveCourse(long sessionId, long productId) {
+		List<Integer> rows = jdbcTemplate.queryForList("""
+				SELECT 1
+				FROM table_sessions ts
+				JOIN customer_groups cg ON cg.id = ts.customer_group_id
+				JOIN course_products cp ON cp.course_id = cg.course_id
+				WHERE ts.id = ? AND cp.product_id = ?
+				LIMIT 1
+				""", Integer.class, sessionId, productId);
+		return !rows.isEmpty();
 	}
 
 	private Map<String, Object> selectedCourse(Map<String, Object> product, Long courseId) {

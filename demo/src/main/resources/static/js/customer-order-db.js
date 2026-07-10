@@ -2,6 +2,7 @@
   let products = [];
   let categories = [];
   let courses = [];
+  let activeCourseProductIds = new Set();
   let selectedProduct = null;
   let pageTotal = 0;
   let activeFilter = "all";
@@ -21,6 +22,13 @@
     return courses.find(course => Number(course.id) === Number(select.value)) || null;
   }
 
+  function isIncludedInActiveCourse(product) {
+    return !isPlanCategory(product.category) && activeCourseProductIds.has(Number(product.id));
+  }
+
+  function effectiveProductPrice(product) {
+    return isIncludedInActiveCourse(product) ? 0 : Number(product.price);
+  }
   function formatPlanOption(course) {
     return `${course.name}（${Number(course.price).toLocaleString()}円 / ${course.duration}）`;
   }
@@ -115,7 +123,8 @@
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.category = product.category;
-      card.dataset.price = product.price;
+      const displayPrice = effectiveProductPrice(product);
+      card.dataset.price = displayPrice;
       card.dataset.productId = product.id;
       card.dataset.soldOut = product.sold_out ? "true" : "false";
       card.innerHTML = `
@@ -123,7 +132,7 @@
           <img src="${product.image_path}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
         </div>
         <div class="name">${product.name}</div>
-        <div class="price">${Number(product.price).toLocaleString()}円</div>
+        <div class="price">${displayPrice.toLocaleString()}円</div>
         <button class="order-btn" type="button" ${product.sold_out ? "disabled" : ""}>${product.sold_out ? "品切れ" : "注文"}</button>
       `;
       card.querySelector(".order-btn").onclick = () => openOrderModal(product);
@@ -195,6 +204,10 @@
 
     pageTotal += Number(result.totalPrice || 0);
     document.getElementById("total-area").innerText = `合計：${pageTotal.toLocaleString()}円`;
+    if (plan) {
+      await initActiveCourseProducts(table);
+      renderProducts();
+    }
     document.getElementById("modal").classList.remove("active");
     document.getElementById("complete-name").innerText = plan ? `${selectedProduct.name}（${plan.name}）` : selectedProduct.name;
     document.getElementById("complete-qty").innerText = `${isPlanCategory(selectedProduct.category) ? "人数" : "個数"}：${qty}`;
@@ -262,6 +275,15 @@
     return session.hasCourse ? session.remainingSeconds : null;
   }
 
+  async function initActiveCourseProducts(table) {
+    if (!table) return;
+    try {
+      const session = await loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+      activeCourseProductIds = new Set((session.includedProductIds || []).map(Number));
+    } catch (e) {
+      activeCourseProductIds = new Set();
+    }
+  }
   async function initRemainingTime() {
     const label = document.getElementById("remaining-time");
     if (!label) return;
@@ -319,10 +341,10 @@
     categories = await loadJson("/api/categories");
     courses = await loadJson("/api/courses");
     products = await loadJson("/api/products");
+    const table = tableNumber();
+    await initActiveCourseProducts(table);
     renderCategories();
     renderProducts();
-
-    const table = tableNumber();
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
     await refreshPageTotal();
