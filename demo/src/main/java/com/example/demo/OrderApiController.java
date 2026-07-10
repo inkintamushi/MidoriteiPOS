@@ -104,31 +104,47 @@ public class OrderApiController {
 
 	private Map<String, Object> placeOrder(int tableNumber, List<CreateOrderItem> items) {
 		long tableId = ensureTableId(tableNumber);
-		long sessionId = ensureActiveTableSession(tableId, null);
-
-		int total = 0;
-		for (CreateOrderItem item : items) {
-			Map<String, Object> product = product(item.productId());
-			total += ((Number) product.get("price")).intValue() * item.quantity();
-		}
+		long sessionId = ensureActiveTableSession(tableId, null, null);
+		Long courseId = currentCourseId(sessionId);
 
 		long orderId = insertAndGetKey("""
 				INSERT INTO orders (table_session_id, ordered_at)
 				VALUES (?, ?)
 				""", sessionId, nowJst());
 
+		int total = 0;
 		for (CreateOrderItem item : items) {
 			Map<String, Object> product = product(item.productId());
+			// 飲み放題コースの対象商品(course_products)は、コース料金に含まれるため個別課金しない
+			boolean coveredByCourse = courseId != null && isCourseProduct(courseId, item.productId());
+			int unitPrice = coveredByCourse ? 0 : ((Number) product.get("price")).intValue();
+			total += unitPrice * item.quantity();
 			jdbcTemplate.update("""
 					INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, status)
 					VALUES (?, ?, ?, ?, ?, 'ORDERED')
-					""", orderId, item.productId(), product.get("name"), item.quantity(), product.get("price"));
+					""", orderId, item.productId(), product.get("name"), item.quantity(), unitPrice);
 		}
 
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
 				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
 
 		return Map.of("ok", true, "orderId", orderId, "totalPrice", total);
+	}
+
+	private Long currentCourseId(long sessionId) {
+		return jdbcTemplate.queryForObject("""
+				SELECT cg.course_id
+				FROM table_sessions ts
+				JOIN customer_groups cg ON cg.id = ts.customer_group_id
+				WHERE ts.id = ?
+				""", Long.class, sessionId);
+	}
+
+	private boolean isCourseProduct(long courseId, long productId) {
+		Boolean exists = jdbcTemplate.queryForObject("""
+				SELECT EXISTS(SELECT 1 FROM course_products WHERE course_id = ? AND product_id = ?)
+				""", Boolean.class, courseId, productId);
+		return Boolean.TRUE.equals(exists);
 	}
 
 	/**
@@ -252,8 +268,11 @@ public class OrderApiController {
 				JOIN orders o ON o.id = i.order_id
 				JOIN table_sessions ts ON ts.id = o.table_session_id
 				JOIN dining_tables t ON t.id = ts.table_id
+				JOIN products p ON p.id = i.product_id
+				JOIN categories c ON c.id = p.category_id
 				WHERE ts.ended_at IS NULL
 				  AND i.status <> 'CANCELED'
+				  AND c.code <> 'nomi'
 				  AND (i.quantity - i.delivered_quantity - i.canceled_quantity) > 0
 				ORDER BY o.ordered_at, i.id
 				""");
@@ -434,6 +453,7 @@ public class OrderApiController {
 	}
 
 	@PutMapping("/api/staff/tables/{tableNumber}")
+	@Transactional
 	public Map<String, Object> updateTable(@PathVariable int tableNumber, @RequestBody TableRequest request) {
 		long tableId = ensureTableId(tableNumber);
 		Integer seatStatus = request.status() == null ? null : resolveSeatStatus(request.status());
@@ -442,12 +462,7 @@ public class OrderApiController {
 		}
 
 		if (seatStatus != null && seatStatus.equals(SEAT_STATUS_CODES.get("OCCUPIED"))) {
-			long sessionId = ensureActiveTableSession(tableId, request.guestCount());
-			if (request.courseId() != null) {
-				Long groupId = jdbcTemplate.queryForObject(
-						"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
-				jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", request.courseId(), groupId);
-			}
+			ensureActiveTableSession(tableId, request.guestCount(), request.courseId());
 		} else if (request.guestCount() != null) {
 			List<Long> activeGroupIds = jdbcTemplate.queryForList("""
 					SELECT customer_group_id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
@@ -525,7 +540,7 @@ public class OrderApiController {
 	@PostMapping("/api/staff/tables/{tableNumber}/qr")
 	public Map<String, Object> issueQr(@PathVariable int tableNumber, HttpServletRequest request) {
 		long tableId = ensureTableId(tableNumber);
-		long sessionId = ensureActiveTableSession(tableId, null);
+		long sessionId = ensureActiveTableSession(tableId, null, null);
 		String token = jdbcTemplate.queryForObject(
 				"SELECT qr_code FROM table_sessions WHERE id = ?", String.class, sessionId);
 		String orderUrl = baseUrl(request) + "/order?table=" + tableNumber + "&qr=" + token;
@@ -570,16 +585,21 @@ public class OrderApiController {
 	 * (kyakuannnai.html) and the ad-hoc table-occupation paths (createOrder,
 	 * issueQr, updateTable) all landing on the same active session.
 	 */
-	private long ensureActiveTableSession(long tableId, Integer guestCount) {
+	private long ensureActiveTableSession(long tableId, Integer guestCount, Long courseId) {
 		List<Long> activeSessionIds = jdbcTemplate.queryForList("""
 				SELECT id FROM table_sessions WHERE table_id = ? AND ended_at IS NULL
 				""", Long.class, tableId);
 		if (!activeSessionIds.isEmpty()) {
 			long sessionId = activeSessionIds.get(0);
-			if (guestCount != null) {
+			if (guestCount != null || courseId != null) {
 				Long groupId = jdbcTemplate.queryForObject(
 						"SELECT customer_group_id FROM table_sessions WHERE id = ?", Long.class, sessionId);
-				jdbcTemplate.update("UPDATE customer_groups SET guest_count = ? WHERE id = ?", guestCount, groupId);
+				if (guestCount != null) {
+					jdbcTemplate.update("UPDATE customer_groups SET guest_count = ? WHERE id = ?", guestCount, groupId);
+				}
+				if (courseId != null) {
+					jdbcTemplate.update("UPDATE customer_groups SET course_id = ? WHERE id = ?", courseId, groupId);
+				}
 			}
 			return sessionId;
 		}
@@ -587,16 +607,51 @@ public class OrderApiController {
 		int initialGuestCount = (guestCount != null && guestCount > 0) ? guestCount : 1;
 		Timestamp now = nowJst();
 		long groupId = insertAndGetKey("""
-				INSERT INTO customer_groups (entered_at, billing_status, guest_count)
-				VALUES (?, 1, ?)
-				""", now, initialGuestCount);
+				INSERT INTO customer_groups (entered_at, billing_status, guest_count, course_id)
+				VALUES (?, 1, ?, ?)
+				""", now, initialGuestCount, courseId);
 		long sessionId = insertAndGetKey("""
 				INSERT INTO table_sessions (customer_group_id, table_id, started_at, qr_code, secret_code)
 				VALUES (?, ?, ?, ?, ?)
 				""", groupId, tableId, now, UUID.randomUUID().toString(), generateSecretCode());
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
 				SEAT_STATUS_CODES.get("OCCUPIED"), tableId);
+		// 新規着席時にコースが選択されている場合、コース料金(人数分)を即時に計上する。
+		// 配膳の必要がない金額のみの明細なので、最初からDELIVERED済みとして記録する。
+		if (courseId != null) {
+			placeCourseOrder(sessionId, courseId, initialGuestCount);
+		}
 		return sessionId;
+	}
+
+	private void placeCourseOrder(long sessionId, long courseId, int guestCount) {
+		List<Map<String, Object>> courseRows = jdbcTemplate.queryForList(
+				"SELECT name, price FROM courses WHERE id = ?", courseId);
+		if (courseRows.isEmpty()) {
+			return;
+		}
+		List<Long> planProductIds = jdbcTemplate.queryForList("""
+				SELECT p.id FROM products p
+				JOIN categories c ON c.id = p.category_id
+				WHERE c.code = 'nomi' AND p.store_id = ? AND p.active = TRUE
+				ORDER BY p.id
+				""", Long.class, DEFAULT_STORE_ID);
+		if (planProductIds.isEmpty()) {
+			return;
+		}
+
+		Map<String, Object> course = courseRows.get(0);
+		Timestamp now = nowJst();
+		long orderId = insertAndGetKey("""
+				INSERT INTO orders (table_session_id, ordered_at)
+				VALUES (?, ?)
+				""", sessionId, now);
+		jdbcTemplate.update("""
+				INSERT INTO order_items
+					(order_id, product_id, product_name, quantity, delivered_quantity, unit_price, status, completed_at)
+				VALUES (?, ?, ?, ?, ?, ?, 'DELIVERED', ?)
+				""", orderId, planProductIds.get(0), course.get("name") + "プラン",
+				guestCount, guestCount, course.get("price"), now);
 	}
 
 	private String generateSecretCode() {

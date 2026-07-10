@@ -108,15 +108,22 @@
       card.dataset.price = product.price;
       card.dataset.productId = product.id;
       card.dataset.soldOut = product.sold_out ? "true" : "false";
+      // 飲み放題プラン自体は案内時(客案内画面)に人数分まとめて確定済みのため、
+      // ここから個別に(=人数を自由に選んで)追加注文することはできない。
+      const isPlan = isPlanCategory(product.category);
+      const disabled = product.sold_out || isPlan;
+      const buttonLabel = product.sold_out ? "品切れ" : (isPlan ? "案内時に選択済み" : "注文");
       card.innerHTML = `
         <div class="image">
           <img src="${product.image_path}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
         </div>
         <div class="name">${product.name}</div>
         <div class="price">${Number(product.price).toLocaleString()}円</div>
-        <button class="order-btn" type="button" ${product.sold_out ? "disabled" : ""}>${product.sold_out ? "品切れ" : "注文"}</button>
+        <button class="order-btn" type="button" ${disabled ? "disabled" : ""}>${buttonLabel}</button>
       `;
-      card.querySelector(".order-btn").onclick = () => openOrderModal(product);
+      if (!disabled) {
+        card.querySelector(".order-btn").onclick = () => openOrderModal(product);
+      }
       list.appendChild(card);
     });
     updateCardVisibility();
@@ -129,8 +136,6 @@
     document.getElementById("modal-name").innerText = product.name;
     document.getElementById("modal-img").src = product.image_path;
     document.getElementById("modal-img").alt = product.name;
-    const qtyLabel = document.getElementById("qty-label");
-    if (qtyLabel) qtyLabel.textContent = isPlanCategory(product.category) ? "人数:" : "個数:";
     orderQtyMax = getOrderQtyMax();
     qty.max = orderQtyMax;
     qty.value = 1;
@@ -167,7 +172,7 @@
     document.getElementById("total-area").innerText = `合計：${pageTotal.toLocaleString()}円`;
     document.getElementById("modal").classList.remove("active");
     document.getElementById("complete-name").innerText = selectedProduct.name;
-    document.getElementById("complete-qty").innerText = `${isPlanCategory(selectedProduct.category) ? "人数" : "個数"}：${qty}`;
+    document.getElementById("complete-qty").innerText = `個数：${qty}`;
     document.getElementById("complete-img").src = selectedProduct.image_path;
     document.getElementById("complete-img").alt = selectedProduct.name;
     document.getElementById("complete-modal").classList.add("active");
