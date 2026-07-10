@@ -186,6 +186,10 @@ body {
   font-size: 15px;
   cursor: pointer;
 }
+.modal-btn:disabled {
+  background: #b8b8b8;
+  cursor: not-allowed;
+}
 .modal-btn:active { opacity: .75; }
 
 /* ===== 完了カード ===== */
@@ -426,14 +430,15 @@ body {
 
       <div class="form-line">
         <span>商品名：</span>
-        <input type="text" id="new-name" placeholder="商品名">
+        <input type="text" id="new-name" placeholder="商品名" oninput="updateAddYesState()">
       </div>
       <div class="form-line">
         <span>商品価格：</span>
-        <input type="text" id="new-price" placeholder="価格">
+        <input type="text" id="new-price" placeholder="価格" oninput="updateAddYesState()">
       </div>
       <div class="form-line">
-        <select id="new-category">
+        <select id="new-category" onchange="updateAddYesState()">
+          <option value="" selected disabled>カテゴリーを選択</option>
           <option value="デザート">デザート</option>
           <option value="ソフトドリンク">ソフトドリンク</option>
           <option value="アルコール">アルコール</option>
@@ -453,7 +458,7 @@ body {
 
       <div class="confirm-buttons">
         <button class="modal-btn" onclick="closeAddProduct()">No</button>
-        <button class="modal-btn" onclick="executeAdd()">Yes</button>
+        <button id="add-yes" class="modal-btn" onclick="executeAdd()" disabled>Yes</button>
       </div>
     </div>
   </div>
@@ -636,13 +641,23 @@ function goAddProduct() {
   document.getElementById('new-name').value = '';
   document.getElementById('new-price').value = '';
   const categorySelect = document.getElementById('new-category');
-  categorySelect.value = categorySelect.querySelector('option[value="dessert"]') ? 'dessert' : (categorySelect.options[0]?.value || '');
+  categorySelect.value = '';
   document.getElementById('new-nomihoudai').value = 'なし';
   document.getElementById('add-img-preview').src = '';
   document.getElementById('add-img-preview').style.display = 'none';
   document.getElementById('add-img-label').style.display = '';
   addImageDataUrl = '';
+  updateAddYesState();
   showOverlay('overlay-add');
+}
+
+function updateAddYesState() {
+  const yes = document.getElementById('add-yes');
+  if (!yes) return;
+  const name = document.getElementById('new-name').value.trim();
+  const price = Number(document.getElementById('new-price').value.trim());
+  const category = document.getElementById('new-category').value;
+  yes.disabled = !(addImageDataUrl && name && Number.isFinite(price) && price > 0 && category);
 }
 
 function closeAddProduct() {
@@ -659,6 +674,7 @@ function previewImage(e) {
     img.src = addImageDataUrl;
     img.style.display = 'block';
     document.getElementById('add-img-label').style.display = 'none';
+    updateAddYesState();
   };
   reader.readAsDataURL(file);
 }

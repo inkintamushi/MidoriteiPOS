@@ -62,7 +62,7 @@
   function populateCategorySelect() {
     const select = document.getElementById("new-category");
     if (!select) return;
-    select.innerHTML = "";
+    select.innerHTML = '<option value="" selected disabled>カテゴリーを選択</option>';
     categories.forEach(category => {
       const option = document.createElement("option");
       option.value = category.code;
@@ -131,7 +131,7 @@
     const category = document.getElementById("new-category").value;
     const nomihoudai = document.getElementById("new-nomihoudai")?.value || "なし";
     const imagePath = typeof addImageDataUrl === "string" ? addImageDataUrl : "";
-    if (!name || !price || !category) return;
+    if (!name || !price || !category || !imagePath) return;
     const result = await json("/api/admin/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
