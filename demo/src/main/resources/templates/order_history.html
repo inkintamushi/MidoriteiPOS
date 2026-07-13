@@ -171,7 +171,7 @@ body {
 
 <div id="history-total" class="history-total">合計：0円</div>
 
-<button id="order-nav" class="order-nav" type="button">注文</button>
+<button id="order-nav" class="order-nav" type="button">戻る</button>
 
 <div class="bottom"></div>
 <div class="home"></div>
@@ -214,10 +214,6 @@ function renderHistory() {
 }
 
 renderHistory();
-
-document.getElementById("order-nav").onclick = () => {
-  location.href = "order.html";
-};
 </script>
 <script src="/js/order-history-db.js"></script>
 
