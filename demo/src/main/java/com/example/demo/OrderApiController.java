@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -64,6 +65,13 @@ public class OrderApiController {
 	private static final Map<Integer, String> SEAT_STATUS_LABELS = SEAT_STATUS_CODES.entrySet().stream()
 			.collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
 
+	private static final Set<Integer> SEAT_STATUSES_WITH_GUESTS = Set.of(
+			SEAT_STATUS_CODES.get("CALL_UNHANDLED"),
+			SEAT_STATUS_CODES.get("CALL_NEEDS_HELP"),
+			SEAT_STATUS_CODES.get("CALL_IN_PROGRESS"),
+			SEAT_STATUS_CODES.get("OCCUPIED"),
+			SEAT_STATUS_CODES.get("PAYMENT_WAITING"));
+
 	private final JdbcTemplate jdbcTemplate;
 
 	public OrderApiController(JdbcTemplate jdbcTemplate) {
@@ -89,6 +97,7 @@ public class OrderApiController {
 	@Transactional
 	public Map<String, Object> createOrder(@RequestBody CreateOrderRequest request) {
 		requireValidQr(request.tableNumber(), request.qrToken());
+		requireOrderableTable(request.tableNumber());
 		return placeOrder(request.tableNumber(), request.items());
 	}
 
@@ -99,12 +108,18 @@ public class OrderApiController {
 	@PostMapping("/api/staff/orders")
 	@Transactional
 	public Map<String, Object> createStaffOrder(@RequestBody CreateOrderRequest request) {
+		requireOrderableTable(request.tableNumber());
 		return placeOrder(request.tableNumber(), request.items());
+	}
+
+	private void requireOrderableTable(int tableNumber) {
+		long tableId = ensureTableId(tableNumber);
+		requireActiveGuestTable(tableId, "使用中の卓だけ注文できます。");
 	}
 
 	private Map<String, Object> placeOrder(int tableNumber, List<CreateOrderItem> items) {
 		long tableId = ensureTableId(tableNumber);
-		long sessionId = ensureActiveTableSession(tableId, null, null);
+		long sessionId = requireActiveGuestTable(tableId, "使用中の卓だけ注文できます。");
 		Long courseId = currentCourseId(sessionId);
 
 		for (CreateOrderItem item : items) {
@@ -448,7 +463,7 @@ public class OrderApiController {
 	@GetMapping("/api/staff/tables")
 	public List<Map<String, Object>> tables() {
 		List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
-				SELECT t.table_number, COALESCE(cg.guest_count, 0) AS guest_count, t.seat_status
+				SELECT t.table_number, CASE WHEN t.seat_status IN (7, 8) THEN 0 ELSE COALESCE(cg.guest_count, 0) END AS guest_count, t.seat_status
 				FROM dining_tables t
 				LEFT JOIN table_sessions ts ON ts.table_id = t.id AND ts.ended_at IS NULL
 				LEFT JOIN customer_groups cg ON cg.id = ts.customer_group_id
@@ -491,19 +506,26 @@ public class OrderApiController {
 	@PutMapping("/api/staff/tables/move")
 	@Transactional
 	public Map<String, Object> moveTable(@RequestBody MoveRequest request) {
+		if (request.fromTableNumber() == request.toTableNumber()) {
+			return Map.of("ok", false, "message", "移動元と移動先には別の卓を選択してください。");
+		}
+
 		long fromId = ensureTableId(request.fromTableNumber());
 		long toId = ensureTableId(request.toTableNumber());
 
-		Long sessionId = activeSessionId(fromId);
-		if (sessionId == null) {
-			return Map.of("ok", false, "message", "移動元の卓に利用客がいません。");
-		}
-		if (activeSessionId(toId) != null) {
-			return Map.of("ok", false, "message", "移動先の卓は空いていません。");
-		}
-
 		int fromStatus = jdbcTemplate.queryForObject(
 				"SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, fromId);
+		int toStatus = jdbcTemplate.queryForObject(
+				"SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, toId);
+
+		Long sessionId = activeSessionId(fromId);
+		if (sessionId == null || activeGuestCount(sessionId) <= 0 || !SEAT_STATUSES_WITH_GUESTS.contains(fromStatus)) {
+			return Map.of("ok", false, "message", "移動元の卓に利用客がいません。");
+		}
+
+		if (activeSessionId(toId) != null || toStatus != SEAT_STATUS_CODES.get("AVAILABLE")) {
+			return Map.of("ok", false, "message", "移動先の卓は空いていません。");
+		}
 
 		jdbcTemplate.update("UPDATE table_sessions SET table_id = ? WHERE id = ?", toId, sessionId);
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?", fromStatus, toId);
@@ -544,6 +566,30 @@ public class OrderApiController {
 		return ids.isEmpty() ? null : ids.get(0);
 	}
 
+	private long requireActiveGuestTable(long tableId, String message) {
+		int status = seatStatus(tableId);
+		Long sessionId = activeSessionId(tableId);
+		if (!SEAT_STATUSES_WITH_GUESTS.contains(status) || sessionId == null || activeGuestCount(sessionId) <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+		}
+		return sessionId;
+	}
+
+	private int seatStatus(long tableId) {
+		return jdbcTemplate.queryForObject(
+				"SELECT seat_status FROM dining_tables WHERE id = ?", Integer.class, tableId);
+	}
+
+	private int activeGuestCount(long sessionId) {
+		Integer guestCount = jdbcTemplate.queryForObject("""
+				SELECT COALESCE(cg.guest_count, 0)
+				FROM table_sessions ts
+				JOIN customer_groups cg ON cg.id = ts.customer_group_id
+				WHERE ts.id = ? AND ts.ended_at IS NULL
+				""", Integer.class, sessionId);
+		return guestCount == null ? 0 : guestCount;
+	}
+
 	/**
 	 * Returns the table's current QR code, minting one only if its active
 	 * session doesn't have one yet. Re-displaying (previously called
@@ -553,7 +599,7 @@ public class OrderApiController {
 	@PostMapping("/api/staff/tables/{tableNumber}/qr")
 	public Map<String, Object> issueQr(@PathVariable int tableNumber, HttpServletRequest request) {
 		long tableId = ensureTableId(tableNumber);
-		long sessionId = ensureActiveTableSession(tableId, null, null);
+		long sessionId = requireActiveGuestTable(tableId, "利用客がいる卓だけQRを再表示できます。");
 		String token = jdbcTemplate.queryForObject(
 				"SELECT qr_code FROM table_sessions WHERE id = ?", String.class, sessionId);
 		String orderUrl = baseUrl(request) + "/order?table=" + tableNumber + "&qr=" + token;
@@ -628,9 +674,9 @@ public class OrderApiController {
 
 	/**
 	 * Finds the table's currently open session (customer_groups + table_sessions),
-	 * or lazily creates one if the table has none. Mirrors the seating flow
-	 * (kyakuannnai.html) and the ad-hoc table-occupation paths (createOrder,
-	 * issueQr, updateTable) all landing on the same active session.
+	 * or lazily creates one if the table has none. This is only for flows that
+	 * explicitly seat a customer, such as guidance/updateTable, not for ordering,
+	 * QR re-display, or table movement.
 	 */
 	private long ensureActiveTableSession(long tableId, Integer guestCount, Long courseId) {
 		List<Long> activeSessionIds = jdbcTemplate.queryForList("""

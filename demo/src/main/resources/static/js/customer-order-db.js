@@ -88,7 +88,7 @@
     const bar = document.querySelector(".category-bar");
     if (!bar) return;
     bar.innerHTML = '<button class="tab active" data-filter="all">すべて</button>';
-    categories.forEach(category => {
+    categories.filter(category => !isPlanCategory(category.code)).forEach(category => {
       const button = document.createElement("button");
       button.className = "tab";
       button.type = "button";
@@ -120,7 +120,7 @@
     if (!list) return;
     list.innerHTML = "";
 
-    products.forEach(product => {
+    products.filter(product => !isPlanCategory(product.category)).forEach(product => {
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.category = product.category;

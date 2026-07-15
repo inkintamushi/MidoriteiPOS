@@ -314,22 +314,8 @@ body {
   display: block;
 }
 
-.qr-card > .qr-box:not(#guidance-qr),
-.barcode-btn {
+.qr-card > .qr-box:not(#guidance-qr) {
   display: none;
-}
-
-.barcode-btn {
-  display: block;
-  width: 200px;
-  margin: 0 auto 16px;
-  padding: 9px 0;
-  background: #003d00;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
 }
 
 .print-row {
@@ -551,7 +537,6 @@ body {
           <div id="guidance-qr" class="qr-box">QRコード</div>
           <div class="qr-id-row">顧客ID ●●●●●●●●●●</div>
           <div class="qr-box">QRコード表示</div>
-          <button class="barcode-btn">一次元バーコード</button>
           <div class="print-row">
             <input id="guidance-print-count" type="number" value="1" min="1">
             <button class="print-btn" onclick="printGuidanceCode()">印刷</button>
@@ -826,8 +811,9 @@ async function renderMoveTableOptions() {
   const response = await fetch('/api/staff/tables');
   if (!response.ok) return;
   const tables = await response.json();
-  const fromTables = tables.filter(t => t.status !== 'AVAILABLE' && t.status !== 'OUT_OF_SERVICE');
-  const toTables = tables.filter(t => t.status === 'AVAILABLE');
+  const guestPresentStatuses = ['CALL_UNHANDLED', 'CALL_NEEDS_HELP', 'CALL_IN_PROGRESS', 'OCCUPIED', 'PAYMENT_WAITING'];
+  const fromTables = tables.filter(t => guestPresentStatuses.includes(t.status) && Number(t.guest_count || 0) > 0);
+  const toTables = tables.filter(t => t.status === 'AVAILABLE' && Number(t.guest_count || 0) === 0);
   fillSelect(document.getElementById('idou-from'), fromTables, '移動元なし');
   fillSelect(document.getElementById('idou-to'), toTables, '空席なし');
   fillSelect(document.getElementById('koukan-a'), fromTables, '交換元なし');

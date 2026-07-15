@@ -173,6 +173,19 @@ th {
   height: 160px;
 }
 
+.qr-print-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+.qr-print-row input {
+  width: 64px;
+  height: 32px;
+  border: 1px solid #999;
+  text-align: center;
+}
 .qr-modal-buttons {
   display: flex;
   justify-content: center;
@@ -255,6 +268,10 @@ th {
       <div class="qr-modal-title">QR再発行</div>
       <div id="qr-modal-text" class="qr-modal-text"></div>
       <div id="qr-code-box" class="qr-code-box"></div>
+      <div class="qr-print-row">
+        <input id="qr-print-count" type="number" value="1" min="1">
+        <button class="btn green" type="button" onclick="printQrFromModal()">印刷</button>
+      </div>
       <div class="qr-modal-buttons">
         <button class="btn green" type="button" onclick="closeQrModal()">閉じる</button>
       </div>

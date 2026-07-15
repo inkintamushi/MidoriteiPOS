@@ -16,12 +16,12 @@ public class OrderController {
 
 	@GetMapping("/")
 	public String index() {
-		return "switch";
+		return "redirect:/order";
 	}
 
 	@GetMapping("/switch")
 	public String switchScreen() {
-		return "switch";
+		return "redirect:/order";
 	}
 
 	@GetMapping("/order")

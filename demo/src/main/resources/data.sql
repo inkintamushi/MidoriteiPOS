@@ -79,9 +79,9 @@ INSERT INTO dining_tables (store_id, table_number, seat_status) VALUES
 (1, 2, 7),
 (1, 3, 7),
 (1, 4, 7),
-(1, 5, 8),
+(1, 5, 7),
 (1, 6, 7),
 (1, 7, 7),
-(1, 8, 8),
+(1, 8, 7),
 (1, 9, 7)
 ON DUPLICATE KEY UPDATE seat_status = VALUES(seat_status);
