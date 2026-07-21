@@ -422,19 +422,22 @@ public class OrderApiController {
 				FROM table_sessions
 				WHERE table_id = ? AND ended_at IS NULL
 				""", tableId);
-		if (sessions.isEmpty()) {
-			return Map.of("ok", true, "totalPrice", 0);
-		}
-		long sessionId = ((Number) sessions.get(0).get("id")).longValue();
-		long groupId = ((Number) sessions.get(0).get("customer_group_id")).longValue();
-		Integer total = sessionTotal(sessionId);
 
-		Timestamp now = nowJst();
-		jdbcTemplate.update("UPDATE table_sessions SET ended_at = ? WHERE id = ?", now, sessionId);
-		jdbcTemplate.update("""
-				UPDATE customer_groups SET billing_status = 2, left_at = ? WHERE id = ?
-				""", now, groupId);
-		// 状態遷移表: 会計時、自動で「清掃未対応」になる
+		Integer total = 0;
+		if (!sessions.isEmpty()) {
+			long sessionId = ((Number) sessions.get(0).get("id")).longValue();
+			long groupId = ((Number) sessions.get(0).get("customer_group_id")).longValue();
+			total = sessionTotal(sessionId);
+
+			Timestamp now = nowJst();
+			jdbcTemplate.update("UPDATE table_sessions SET ended_at = ? WHERE id = ?", now, sessionId);
+			jdbcTemplate.update("""
+					UPDATE customer_groups SET billing_status = 2, left_at = ? WHERE id = ?
+					""", now, groupId);
+		}
+		// 状態遷移表: 会計時、自動で「清掃未対応」になる。アクティブなセッションが
+		// 見つからない場合(二重送信等で既に終了済みの場合)でも、卓のステータスだけが
+		// 「会計対応待ち」のまま固まらないよう、ここは条件を付けず必ず遷移させる。
 		jdbcTemplate.update("UPDATE dining_tables SET seat_status = ? WHERE id = ?",
 				SEAT_STATUS_CODES.get("CLEANING_UNHANDLED"), tableId);
 
