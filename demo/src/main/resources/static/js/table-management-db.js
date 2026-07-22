@@ -24,6 +24,14 @@
     PAYMENT_WAITING: { text: "会計対応待ち", cls: "orange" }
   };
 
+  const guestPresentStatuses = new Set([
+    "CALL_UNHANDLED",
+    "CALL_NEEDS_HELP",
+    "CALL_IN_PROGRESS",
+    "OCCUPIED",
+    "PAYMENT_WAITING"
+  ]);
+
   async function loadTables() {
     const response = await fetch("/api/staff/tables");
     if (!response.ok) return;
@@ -33,14 +41,14 @@
 
   // taku.html: 卓一覧を丸ごと描画する。注文・注文履歴・QRボタンは
   // 「使用されている卓番号のみに付随する」(機能統合版_ホーム) ため、
-  // 客が着席中(guest_count > 0)の卓にのみ表示する。
+  // 客がいる扱いの卓だけに注文・履歴・QRを表示する。
   function renderTableList(tables) {
     const tbody = document.getElementById("table-list");
     if (!tbody) return;
     tbody.innerHTML = "";
     tables.forEach(table => {
       const state = dbToButton[table.status] || { text: table.status, cls: "gray" };
-      const inUse = table.status !== "AVAILABLE" && table.status !== "OUT_OF_SERVICE";
+      const inUse = guestPresentStatuses.has(table.status) && Number(table.guest_count || 0) > 0;
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${table.table_number}</td>
@@ -64,6 +72,8 @@
   // Fetches the table's current, server-validated qr token, minting one only
   // if the active session doesn't already have one. Re-displaying must not
   // replace an existing token, or a customer's already-scanned QR would break.
+  let currentQrPrint = { tableNo: null, qrUrl: "" };
+
   async function issueQr(tableNumber) {
     const response = await fetch(`/api/staff/tables/${tableNumber}/qr`, { method: "POST" });
     if (!response.ok) throw new Error("QR発行に失敗しました。");
@@ -80,6 +90,7 @@
     const qrBox = document.getElementById("qr-code-box");
     const text = document.getElementById("qr-modal-text");
 
+    currentQrPrint = { tableNo, qrUrl };
     localStorage.setItem("currentOrderTable", tableNo);
     text.textContent = `卓番号：${tableNo} / ${qrUrl}`;
     qrBox.innerHTML = "";
@@ -95,9 +106,60 @@
       qrBox.textContent = qrUrl;
     }
 
+    const countInput = document.getElementById("qr-print-count");
+    if (countInput) countInput.value = 1;
     document.getElementById("qr-modal").classList.add("active");
   };
 
+  window.printQrFromModal = function() {
+    const count = Math.max(1, Math.min(20, parseInt(document.getElementById("qr-print-count")?.value, 10) || 1));
+    const qrBox = document.getElementById("qr-code-box");
+    const canvas = qrBox?.querySelector("canvas");
+    const img = qrBox?.querySelector("img");
+    const imageSrc = canvas ? canvas.toDataURL("image/png") : (img ? img.src : "");
+    if (!imageSrc) {
+      alert("印刷するQRコードがありません。");
+      return;
+    }
+
+    const tickets = Array.from({ length: count }, () => `
+      <section class="ticket">
+        <h1>みどり亭 QRコード</h1>
+        <p>卓番号：${currentQrPrint.tableNo ?? ""}</p>
+        <img src="${imageSrc}" alt="QRコード">
+        <p class="url">${currentQrPrint.qrUrl || ""}</p>
+      </section>
+    `).join("");
+
+    let frame = document.getElementById("qr-print-frame");
+    if (!frame) {
+      frame = document.createElement("iframe");
+      frame.id = "qr-print-frame";
+      frame.style.position = "fixed";
+      frame.style.right = "0";
+      frame.style.bottom = "0";
+      frame.style.width = "0";
+      frame.style.height = "0";
+      frame.style.border = "0";
+      document.body.appendChild(frame);
+    }
+
+    frame.onload = () => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    };
+    frame.srcdoc = `<!doctype html>
+<html><head><meta charset="UTF-8"><title>QR印刷</title>
+<style>
+body { margin: 0; font-family: sans-serif; }
+.ticket { box-sizing: border-box; min-height: 100vh; padding: 32px 20px; text-align: center; page-break-after: always; }
+.ticket:last-child { page-break-after: auto; }
+h1 { font-size: 18px; margin: 0 0 18px; }
+p { font-size: 14px; margin: 10px 0; }
+img { width: 180px; height: 180px; }
+.url { word-break: break-all; font-size: 11px; }
+</style></head><body>${tickets}</body></html>`;
+  };
   let courses = [];
 
   async function loadCourses() {
@@ -131,12 +193,27 @@
     window.execIdou = async function() {
       const from = document.getElementById("idou-from")?.value;
       const to = document.getElementById("idou-to")?.value;
-      if (from && to) {
-        await fetch("/api/staff/tables/move", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fromTableNumber: Number(from), toTableNumber: Number(to) })
-        });
+      if (!from || !to) {
+        alert("移動する卓番号と移動先の卓番号を選択してください。");
+        return;
+      }
+      if (from === to) {
+        alert("移動元と移動先には別の卓を選択してください。");
+        return;
+      }
+      const response = await fetch("/api/staff/tables/move", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromTableNumber: Number(from), toTableNumber: Number(to) })
+      });
+      if (!response.ok) {
+        alert("卓移動に失敗しました。");
+        return;
+      }
+      const result = await response.json();
+      if (result.ok === false) {
+        alert(result.message || "卓移動できません。");
+        return;
       }
       originalExecIdou();
     };
@@ -147,12 +224,27 @@
     window.execKoukan = async function() {
       const a = document.getElementById("koukan-a")?.value;
       const b = document.getElementById("koukan-b")?.value;
-      if (a && b) {
-        await fetch("/api/staff/tables/swap", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tableNumberA: Number(a), tableNumberB: Number(b) })
-        });
+      if (!a || !b) {
+        alert("交換する卓番号を選択してください。");
+        return;
+      }
+      if (a === b) {
+        alert("別の卓を選択してください。");
+        return;
+      }
+      const response = await fetch("/api/staff/tables/swap", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumberA: Number(a), tableNumberB: Number(b) })
+      });
+      if (!response.ok) {
+        alert("卓交換に失敗しました。");
+        return;
+      }
+      const result = await response.json();
+      if (result.ok === false) {
+        alert(result.message || "卓交換できません。");
+        return;
       }
       originalExecKoukan();
     };

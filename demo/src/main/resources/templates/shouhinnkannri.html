@@ -186,6 +186,10 @@ body {
   font-size: 15px;
   cursor: pointer;
 }
+.modal-btn:disabled {
+  background: #b8b8b8;
+  cursor: not-allowed;
+}
 .modal-btn:active { opacity: .75; }
 
 /* ===== 完了カード ===== */
@@ -381,6 +385,10 @@ body {
           <input type="radio" name="action" id="radio-soldout" onchange="clearPrice()">
         </div>
         <div class="radio-row">
+          <span>販売中に戻す</span>
+          <input type="radio" name="action" id="radio-available" onchange="clearPrice()">
+        </div>
+        <div class="radio-row">
           <span>商品削除</span>
           <input type="radio" name="action" id="radio-delete" onchange="clearPrice()">
         </div>
@@ -426,14 +434,15 @@ body {
 
       <div class="form-line">
         <span>商品名：</span>
-        <input type="text" id="new-name" placeholder="商品名">
+        <input type="text" id="new-name" placeholder="商品名" oninput="updateAddYesState()">
       </div>
       <div class="form-line">
         <span>商品価格：</span>
-        <input type="text" id="new-price" placeholder="価格">
+        <input type="text" id="new-price" placeholder="価格" oninput="updateAddYesState()">
       </div>
       <div class="form-line">
-        <select id="new-category">
+        <select id="new-category" onchange="updateAddYesState()">
+          <option value="" selected disabled>カテゴリーを選択</option>
           <option value="デザート">デザート</option>
           <option value="ソフトドリンク">ソフトドリンク</option>
           <option value="アルコール">アルコール</option>
@@ -453,7 +462,7 @@ body {
 
       <div class="confirm-buttons">
         <button class="modal-btn" onclick="closeAddProduct()">No</button>
-        <button class="modal-btn" onclick="executeAdd()">Yes</button>
+        <button id="add-yes" class="modal-btn" onclick="executeAdd()" disabled>Yes</button>
       </div>
     </div>
   </div>
@@ -575,6 +584,7 @@ function openConfirmEdit(name) {
   document.getElementById('edit-name').textContent = '商品名：' + name;
   // ラジオ・価格リセット
   document.getElementById('radio-soldout').checked = false;
+  document.getElementById('radio-available').checked = false;
   document.getElementById('radio-delete').checked = false;
   document.getElementById('price-input').value = '';
   showOverlay('overlay-confirm');
@@ -588,6 +598,7 @@ function onPriceInput() {
   const val = document.getElementById('price-input').value;
   if (val !== '') {
     document.getElementById('radio-soldout').checked = false;
+    document.getElementById('radio-available').checked = false;
     document.getElementById('radio-delete').checked = false;
   }
 }
@@ -599,6 +610,7 @@ function clearPrice() {
 function executeEdit() {
   const name = document.getElementById('edit-name').textContent;
   const soldout = document.getElementById('radio-soldout').checked;
+  const available = document.getElementById('radio-available').checked;
   const del = document.getElementById('radio-delete').checked;
   const price = document.getElementById('price-input').value.trim();
 
@@ -606,6 +618,9 @@ function executeEdit() {
 
   if (soldout) {
     document.getElementById('done-line1').textContent = '商品売切';
+    document.getElementById('done-line2').textContent = 'を完了いたしました。';
+  } else if (available) {
+    document.getElementById('done-line1').textContent = '販売中に戻す';
     document.getElementById('done-line2').textContent = 'を完了いたしました。';
   } else if (del) {
     document.getElementById('done-line1').textContent = '商品削除';
@@ -635,13 +650,24 @@ function goAddProduct() {
   // フォームリセット
   document.getElementById('new-name').value = '';
   document.getElementById('new-price').value = '';
-  document.getElementById('new-category').value = 'デザート';
+  const categorySelect = document.getElementById('new-category');
+  categorySelect.value = '';
   document.getElementById('new-nomihoudai').value = 'なし';
   document.getElementById('add-img-preview').src = '';
   document.getElementById('add-img-preview').style.display = 'none';
   document.getElementById('add-img-label').style.display = '';
   addImageDataUrl = '';
+  updateAddYesState();
   showOverlay('overlay-add');
+}
+
+function updateAddYesState() {
+  const yes = document.getElementById('add-yes');
+  if (!yes) return;
+  const name = document.getElementById('new-name').value.trim();
+  const price = Number(document.getElementById('new-price').value.trim());
+  const category = document.getElementById('new-category').value;
+  yes.disabled = !(addImageDataUrl && name && Number.isFinite(price) && price > 0 && category);
 }
 
 function closeAddProduct() {
@@ -658,6 +684,7 @@ function previewImage(e) {
     img.src = addImageDataUrl;
     img.style.display = 'block';
     document.getElementById('add-img-label').style.display = 'none';
+    updateAddYesState();
   };
   reader.readAsDataURL(file);
 }

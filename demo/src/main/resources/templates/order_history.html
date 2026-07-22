@@ -71,6 +71,7 @@
 body {
   background: #fff;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .history-total {
@@ -86,11 +87,13 @@ body {
   width: 100%;
   max-width: none;
   min-height: 100vh;
+  min-height: 100dvh;
   height: auto;
   margin: 0;
   border: 0;
   border-radius: 0;
   overflow: visible;
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
 }
 
 .header {
@@ -110,6 +113,7 @@ body {
   min-height: calc(100vh - 140px);
   padding-bottom: 24px;
   overflow: visible;
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
 }
 
 @media (max-width: 640px) {
@@ -121,7 +125,27 @@ body {
 }
 
 .order-nav {
-  position: static;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.history-total {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(46px + env(safe-area-inset-bottom));
+  z-index: 6;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.history-table {
+  margin-bottom: calc(112px + env(safe-area-inset-bottom));
 }
 </style>
 </head>

@@ -11,11 +11,9 @@
   const ORDER_QTY_PER_GUEST = 3;
   let orderQtyMax = DEFAULT_ORDER_QTY_MAX;
 
-  // 飲み放題は「個数」ではなく「人数」で数える
   function isPlanCategory(category) {
     return category === "nomi";
   }
-
   function tableNumber() {
     const fromUrl = new URLSearchParams(location.search).get("table");
     if (fromUrl) {
@@ -90,7 +88,7 @@
     const bar = document.querySelector(".category-bar");
     if (!bar) return;
     bar.innerHTML = '<button class="tab active" data-filter="all">すべて</button>';
-    categories.forEach(category => {
+    categories.filter(category => !isPlanCategory(category.code)).forEach(category => {
       const button = document.createElement("button");
       button.className = "tab";
       button.type = "button";
@@ -122,11 +120,13 @@
     if (!list) return;
     list.innerHTML = "";
 
-    products.forEach(product => {
+    products.filter(product => !isPlanCategory(product.category)).forEach(product => {
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.category = product.category;
-      card.dataset.price = product.price;
+      const isCoursePriceFree = courseFreeProductIds.has(Number(product.id));
+      const displayPrice = isCoursePriceFree ? 0 : Number(product.price);
+      card.dataset.price = displayPrice;
       card.dataset.productId = product.id;
       card.dataset.soldOut = product.sold_out ? "true" : "false";
       // 飲み放題プラン自体は案内時(客案内画面)に人数分まとめて確定済みのため、
@@ -136,7 +136,6 @@
       const buttonLabel = product.sold_out ? "品切れ" : (isPlan ? "案内時に選択済み" : "注文");
       // 利用中のコースに含まれる商品(course_products)は、コース料金に含まれ
       // 個別課金されない(サーバー側のisCourseProductと同じ判定)ため0円と表示する。
-      const isCoursePriceFree = courseFreeProductIds.has(Number(product.id));
       const priceLabel = isCoursePriceFree ? "0円" : `${Number(product.price).toLocaleString()}円`;
       card.innerHTML = `
         <div class="image">
@@ -176,6 +175,7 @@
     }
     const qtyInput = document.getElementById("qty");
     const qty = normalizeQty(qtyInput.value);
+    const orderItem = { productId: selectedProduct.id, quantity: qty };
     try {
       await loadJson("/api/orders", {
         method: "POST",
@@ -183,7 +183,7 @@
         body: JSON.stringify({
           tableNumber: table,
           qrToken: qrToken(),
-          items: [{ productId: selectedProduct.id, quantity: qty }]
+          items: [orderItem]
         })
       });
     } catch (e) {
@@ -201,6 +201,21 @@
     document.getElementById("complete-modal").classList.add("active");
   }
 
+
+  async function refreshPageTotal() {
+    const table = tableNumber();
+    if (!table) return;
+    try {
+      const rows = await loadJson(`/api/orders/history?tableNumber=${table}`);
+      pageTotal = rows.reduce((sum, item) => {
+        const qty = Number(item.qty || 0) - Number(item.canceled_quantity || 0);
+        if (qty <= 0) return sum;
+        return sum + qty * Number(item.unit_price || 0);
+      }, 0);
+      const total = document.getElementById("total-area");
+      if (total) total.innerText = `合計：${pageTotal.toLocaleString()}円`;
+    } catch (e) {}
+  }
   async function checkoutCall() {
     const table = tableNumber();
     let result;
@@ -253,12 +268,11 @@
     if (!table) return;
     try {
       const session = await fetchSession(table);
-      courseFreeProductIds = new Set((session.hasCourse ? session.freeProductIds : []) || []);
+      courseFreeProductIds = new Set(((session.hasCourse ? session.freeProductIds : []) || []).map(Number));
     } catch (e) {
       courseFreeProductIds = new Set();
     }
   }
-
   async function initRemainingTime() {
     const label = document.getElementById("remaining-time");
     if (!label) return;
@@ -322,6 +336,7 @@
 
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
+    await refreshPageTotal();
     initRemainingTime();
     refreshTotal();
 
@@ -361,7 +376,8 @@
       document.getElementById("payment-modal").classList.add("active");
     };
     document.getElementById("payment-no").onclick = () => document.getElementById("payment-modal").classList.remove("active");
-    document.getElementById("payment-ok").onclick = () => document.getElementById("payment-complete-modal").classList.remove("active");
+    const paymentOk = document.getElementById("payment-ok");
+    if (paymentOk) paymentOk.onclick = () => document.getElementById("payment-complete-modal").classList.remove("active");
     document.getElementById("payment-yes").onclick = async () => {
       document.getElementById("payment-modal").classList.remove("active");
       if (await checkoutCall()) {
