@@ -5,16 +5,15 @@
   let pageTotal = 0;
   let activeFilter = "all";
   let hideSoldOut = true;
+  let courseFreeProductIds = new Set();
 
   const DEFAULT_ORDER_QTY_MAX = 30;
   const ORDER_QTY_PER_GUEST = 3;
   let orderQtyMax = DEFAULT_ORDER_QTY_MAX;
 
-  // 飲み放題は「個数」ではなく「人数」で数える
   function isPlanCategory(category) {
     return category === "nomi";
   }
-
   function tableNumber() {
     const fromUrl = new URLSearchParams(location.search).get("table");
     if (fromUrl) {
@@ -65,11 +64,31 @@
     return response.json();
   }
 
+  // 合計は自分がこのページで注文した分をその場で足し込むのではなく、毎回サーバーの
+  // 注文履歴(現在のセッションの全明細)から算出し直す。案内時に自動計上されるコース料金や、
+  // 他画面からの注文・キャンセルもここに反映される(order_history.htmlの集計と同じロジック)。
+  async function refreshTotal() {
+    const table = tableNumber();
+    const totalArea = document.getElementById("total-area");
+    if (!table || !totalArea) return;
+    let rows;
+    try {
+      rows = await loadJson(`/api/orders/history?tableNumber=${table}`);
+    } catch (e) {
+      return;
+    }
+    pageTotal = rows.reduce((sum, item) => {
+      const qty = Number(item.qty || 0) - Number(item.canceled_quantity || 0);
+      return sum + qty * Number(item.unit_price || 0);
+    }, 0);
+    totalArea.innerText = `合計：${pageTotal.toLocaleString()}円`;
+  }
+
   function renderCategories() {
     const bar = document.querySelector(".category-bar");
     if (!bar) return;
     bar.innerHTML = '<button class="tab active" data-filter="all">すべて</button>';
-    categories.forEach(category => {
+    categories.filter(category => !isPlanCategory(category.code)).forEach(category => {
       const button = document.createElement("button");
       button.className = "tab";
       button.type = "button";
@@ -101,22 +120,34 @@
     if (!list) return;
     list.innerHTML = "";
 
-    products.forEach(product => {
+    products.filter(product => !isPlanCategory(product.category)).forEach(product => {
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.category = product.category;
-      card.dataset.price = product.price;
+      const isCoursePriceFree = courseFreeProductIds.has(Number(product.id));
+      const displayPrice = isCoursePriceFree ? 0 : Number(product.price);
+      card.dataset.price = displayPrice;
       card.dataset.productId = product.id;
       card.dataset.soldOut = product.sold_out ? "true" : "false";
+      // 飲み放題プラン自体は案内時(客案内画面)に人数分まとめて確定済みのため、
+      // ここから個別に(=人数を自由に選んで)追加注文することはできない。
+      const isPlan = isPlanCategory(product.category);
+      const disabled = product.sold_out || isPlan;
+      const buttonLabel = product.sold_out ? "品切れ" : (isPlan ? "案内時に選択済み" : "注文");
+      // 利用中のコースに含まれる商品(course_products)は、コース料金に含まれ
+      // 個別課金されない(サーバー側のisCourseProductと同じ判定)ため0円と表示する。
+      const priceLabel = isCoursePriceFree ? "0円" : `${Number(product.price).toLocaleString()}円`;
       card.innerHTML = `
         <div class="image">
           <img src="${product.image_path}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:15px;">
         </div>
         <div class="name">${product.name}</div>
-        <div class="price">${Number(product.price).toLocaleString()}円</div>
-        <button class="order-btn" type="button" ${product.sold_out ? "disabled" : ""}>${product.sold_out ? "品切れ" : "注文"}</button>
+        <div class="price">${priceLabel}</div>
+        <button class="order-btn" type="button" ${disabled ? "disabled" : ""}>${buttonLabel}</button>
       `;
-      card.querySelector(".order-btn").onclick = () => openOrderModal(product);
+      if (!disabled) {
+        card.querySelector(".order-btn").onclick = () => openOrderModal(product);
+      }
       list.appendChild(card);
     });
     updateCardVisibility();
@@ -129,8 +160,6 @@
     document.getElementById("modal-name").innerText = product.name;
     document.getElementById("modal-img").src = product.image_path;
     document.getElementById("modal-img").alt = product.name;
-    const qtyLabel = document.getElementById("qty-label");
-    if (qtyLabel) qtyLabel.textContent = isPlanCategory(product.category) ? "人数:" : "個数:";
     orderQtyMax = getOrderQtyMax();
     qty.max = orderQtyMax;
     qty.value = 1;
@@ -146,15 +175,15 @@
     }
     const qtyInput = document.getElementById("qty");
     const qty = normalizeQty(qtyInput.value);
-    let result;
+    const orderItem = { productId: selectedProduct.id, quantity: qty };
     try {
-      result = await loadJson("/api/orders", {
+      await loadJson("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tableNumber: table,
           qrToken: qrToken(),
-          items: [{ productId: selectedProduct.id, quantity: qty }]
+          items: [orderItem]
         })
       });
     } catch (e) {
@@ -163,16 +192,30 @@
       return;
     }
 
-    pageTotal += Number(result.totalPrice || 0);
-    document.getElementById("total-area").innerText = `合計：${pageTotal.toLocaleString()}円`;
+    await refreshTotal();
     document.getElementById("modal").classList.remove("active");
     document.getElementById("complete-name").innerText = selectedProduct.name;
-    document.getElementById("complete-qty").innerText = `${isPlanCategory(selectedProduct.category) ? "人数" : "個数"}：${qty}`;
+    document.getElementById("complete-qty").innerText = `個数：${qty}`;
     document.getElementById("complete-img").src = selectedProduct.image_path;
     document.getElementById("complete-img").alt = selectedProduct.name;
     document.getElementById("complete-modal").classList.add("active");
   }
 
+
+  async function refreshPageTotal() {
+    const table = tableNumber();
+    if (!table) return;
+    try {
+      const rows = await loadJson(`/api/orders/history?tableNumber=${table}`);
+      pageTotal = rows.reduce((sum, item) => {
+        const qty = Number(item.qty || 0) - Number(item.canceled_quantity || 0);
+        if (qty <= 0) return sum;
+        return sum + qty * Number(item.unit_price || 0);
+      }, 0);
+      const total = document.getElementById("total-area");
+      if (total) total.innerText = `合計：${pageTotal.toLocaleString()}円`;
+    } catch (e) {}
+  }
   async function checkoutCall() {
     const table = tableNumber();
     let result;
@@ -212,11 +255,24 @@
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
+  async function fetchSession(table) {
+    return loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+  }
+
   async function fetchRemainingSeconds(table) {
-    const session = await loadJson(`/api/orders/session?tableNumber=${table}&qrToken=${encodeURIComponent(qrToken())}`);
+    const session = await fetchSession(table);
     return session.hasCourse ? session.remainingSeconds : null;
   }
 
+  async function loadCourseFreeProductIds(table) {
+    if (!table) return;
+    try {
+      const session = await fetchSession(table);
+      courseFreeProductIds = new Set(((session.hasCourse ? session.freeProductIds : []) || []).map(Number));
+    } catch (e) {
+      courseFreeProductIds = new Set();
+    }
+  }
   async function initRemainingTime() {
     const label = document.getElementById("remaining-time");
     if (!label) return;
@@ -273,13 +329,16 @@
   document.addEventListener("DOMContentLoaded", async () => {
     categories = await loadJson("/api/categories");
     products = await loadJson("/api/products");
+    const table = tableNumber();
+    await loadCourseFreeProductIds(table);
     renderCategories();
     renderProducts();
 
-    const table = tableNumber();
     const tableLabel = document.getElementById("table-number");
     if (tableLabel) tableLabel.textContent = table ? `卓番号：${table}` : "卓番号：未選択";
+    await refreshPageTotal();
     initRemainingTime();
+    refreshTotal();
 
     const hideSoldOutCheckbox = document.getElementById("hide-sold-out");
     if (hideSoldOutCheckbox) {
@@ -311,12 +370,14 @@
     document.getElementById("complete-ok").onclick = () => document.getElementById("complete-modal").classList.remove("active");
 
     document.getElementById("yes").onclick = submitOrder;
-    document.getElementById("account").onclick = () => {
+    document.getElementById("account").onclick = async () => {
+      await refreshTotal();
       document.getElementById("payment-total").innerText = `会計：${pageTotal.toLocaleString()}円`;
       document.getElementById("payment-modal").classList.add("active");
     };
     document.getElementById("payment-no").onclick = () => document.getElementById("payment-modal").classList.remove("active");
-    document.getElementById("payment-ok").onclick = () => document.getElementById("payment-complete-modal").classList.remove("active");
+    const paymentOk = document.getElementById("payment-ok");
+    if (paymentOk) paymentOk.onclick = () => document.getElementById("payment-complete-modal").classList.remove("active");
     document.getElementById("payment-yes").onclick = async () => {
       document.getElementById("payment-modal").classList.remove("active");
       if (await checkoutCall()) {
@@ -337,7 +398,13 @@
     document.getElementById("history").onclick = () => document.getElementById("history-modal").classList.add("active");
     document.getElementById("history-no").onclick = () => document.getElementById("history-modal").classList.remove("active");
     document.getElementById("history-yes").onclick = () => {
-      location.href = "/order_history";
+      const params = new URLSearchParams();
+      const table = tableNumber();
+      const qr = qrToken();
+      if (table) params.set("table", table);
+      if (qr) params.set("qr", qr);
+      const query = params.toString();
+      location.href = query ? `/order_history?${query}` : "/order_history";
     };
   });
 })();

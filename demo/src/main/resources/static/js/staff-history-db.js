@@ -17,6 +17,7 @@
       const ordered = Number(row.qty || 0);
       const canceled = Number(row.canceled_quantity || 0);
       const activeQty = ordered - canceled;
+      if (activeQty <= 0) return;
       const isDelivered = delivered >= activeQty && activeQty > 0;
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -61,7 +62,12 @@
   window.openHaizenDone = async function() {
     if (!current) return;
     const maxQty = Number(current.delivered_quantity || 0);
-    const qty = Math.max(1, Math.min(Number(document.getElementById("haizen-qty-input").value) || maxQty, maxQty));
+    const inputQty = Number(document.getElementById("haizen-qty-input").value);
+    if (!Number.isFinite(inputQty) || inputQty <= 0) {
+      alert("数量は1以上を入力してください。");
+      return;
+    }
+    const qty = Math.min(inputQty, maxQty);
     await fetch(`/api/staff/order-items/${current.item_id}/undeliver`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -78,7 +84,12 @@
   window.openCancelDone = async function() {
     if (!current) return;
     const maxQty = Number(current.qty || 0) - Number(current.delivered_quantity || 0) - Number(current.canceled_quantity || 0);
-    const qty = Math.max(1, Math.min(Number(document.getElementById("cancel-qty-input").value) || maxQty, maxQty));
+    const inputQty = Number(document.getElementById("cancel-qty-input").value);
+    if (!Number.isFinite(inputQty) || inputQty <= 0) {
+      alert("数量は1以上を入力してください。");
+      return;
+    }
+    const qty = Math.min(inputQty, maxQty);
     await fetch(`/api/staff/order-items/${current.item_id}/cancel`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

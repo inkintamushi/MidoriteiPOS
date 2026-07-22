@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS products (
   category_id BIGINT UNSIGNED NOT NULL,
   name        VARCHAR(100) NOT NULL,
   price       DECIMAL(10,0) NOT NULL,
-  image_path  VARCHAR(255) NOT NULL DEFAULT '/images/product1.jpg',
+  image_path  LONGTEXT NOT NULL,
   sold_out    BOOLEAN NOT NULL DEFAULT FALSE,
   active      BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

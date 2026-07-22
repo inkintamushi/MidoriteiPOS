@@ -31,26 +31,26 @@ UPDATE categories SET active = FALSE WHERE code = 'tabehoudai';
 -- doesn't depend on categories having been inserted in any particular order
 -- or on their auto-generated ids.
 INSERT INTO products (id, store_id, category_id, name, price, image_path, sold_out, active) VALUES
-(1, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'つくね', 180, '/images/product3.jpg', FALSE, TRUE),
-(2, 1, (SELECT id FROM categories WHERE code = 'alcohol'), '日本酒', 550, '/images/product2.jpg', FALSE, TRUE),
-(3, 1, (SELECT id FROM categories WHERE code = 'softdrink'), '水', 320, '/images/product5.jpg', FALSE, TRUE),
-(4, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'いなり', 450, '/images/product7.jpg', FALSE, TRUE),
-(5, 1, (SELECT id FROM categories WHERE code = 'alcohol'), 'ビール', 810, '/images/product8.jpg', FALSE, TRUE),
-(6, 1, (SELECT id FROM categories WHERE code = 'nomi'), '飲み放題プラン', 1980, '/images/product6.jpg', FALSE, TRUE),
-(7, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'くにくにの鶏皮', 160, '/images/product4.jpg', FALSE, TRUE),
-(8, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'ねぎま', 220, '/images/product1.jpg', FALSE, TRUE),
-(9, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'もも', 200, '/images/product3.jpg', FALSE, TRUE),
-(10, 1, (SELECT id FROM categories WHERE code = 'yaki'), '砂肝', 190, '/images/product4.jpg', FALSE, TRUE),
-(11, 1, (SELECT id FROM categories WHERE code = 'alcohol'), 'ハイボール', 500, '/images/product2.jpg', FALSE, TRUE),
-(12, 1, (SELECT id FROM categories WHERE code = 'alcohol'), 'レモンサワー', 480, '/images/product8.jpg', FALSE, TRUE),
-(13, 1, (SELECT id FROM categories WHERE code = 'softdrink'), 'ウーロン茶', 300, '/images/product5.jpg', FALSE, TRUE),
-(14, 1, (SELECT id FROM categories WHERE code = 'softdrink'), 'コーラ', 300, '/images/product5.jpg', FALSE, TRUE),
-(15, 1, (SELECT id FROM categories WHERE code = 'dessert'), 'バニラアイス', 380, '/images/product6.jpg', FALSE, TRUE),
-(16, 1, (SELECT id FROM categories WHERE code = 'dessert'), '季節のシャーベット', 420, '/images/product6.jpg', FALSE, TRUE),
-(17, 1, (SELECT id FROM categories WHERE code = 'tsukemono'), 'きゅうり浅漬け', 350, '/images/product7.jpg', FALSE, TRUE),
-(18, 1, (SELECT id FROM categories WHERE code = 'ippin'), '枝豆', 330, '/images/product1.jpg', FALSE, TRUE),
-(19, 1, (SELECT id FROM categories WHERE code = 'ippin'), '唐揚げ', 680, '/images/product4.jpg', FALSE, TRUE),
-(20, 1, (SELECT id FROM categories WHERE code = 'moriawase'), '焼き鳥盛り合わせ', 980, '/images/product3.jpg', FALSE, TRUE)
+(1, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'つくね', 180, '/images/menu-01-tsukune.png', FALSE, TRUE),
+(2, 1, (SELECT id FROM categories WHERE code = 'alcohol'), '日本酒', 550, '/images/menu-02-sake.png', FALSE, TRUE),
+(3, 1, (SELECT id FROM categories WHERE code = 'softdrink'), '水', 320, '/images/menu-03-water.png', FALSE, TRUE),
+(4, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'いなり', 450, '/images/menu-04-inari.png', FALSE, TRUE),
+(5, 1, (SELECT id FROM categories WHERE code = 'alcohol'), 'ビール', 810, '/images/menu-05-beer.png', FALSE, TRUE),
+(6, 1, (SELECT id FROM categories WHERE code = 'nomi'), '飲み放題プラン', 1980, '/images/menu-06-nomihodai.png', FALSE, TRUE),
+(7, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'くにくにの鶏皮', 160, '/images/menu-07-torikawa.png', FALSE, TRUE),
+(8, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'ねぎま', 220, '/images/menu-08-negima.png', FALSE, TRUE),
+(9, 1, (SELECT id FROM categories WHERE code = 'yaki'), 'もも', 200, '/images/menu-09-momo.png', FALSE, TRUE),
+(10, 1, (SELECT id FROM categories WHERE code = 'yaki'), '砂肝', 190, '/images/menu-10-sunagimo.png', FALSE, TRUE),
+(11, 1, (SELECT id FROM categories WHERE code = 'alcohol'), 'ハイボール', 500, '/images/menu-11-highball.png', FALSE, TRUE),
+(12, 1, (SELECT id FROM categories WHERE code = 'alcohol'), 'レモンサワー', 480, '/images/menu-12-lemon-sour.png', FALSE, TRUE),
+(13, 1, (SELECT id FROM categories WHERE code = 'softdrink'), 'ウーロン茶', 300, '/images/menu-13-oolong-tea.png', FALSE, TRUE),
+(14, 1, (SELECT id FROM categories WHERE code = 'softdrink'), 'コーラ', 300, '/images/menu-14-cola.png', FALSE, TRUE),
+(15, 1, (SELECT id FROM categories WHERE code = 'dessert'), 'バニラアイス', 380, '/images/menu-15-vanilla-ice.png', FALSE, TRUE),
+(16, 1, (SELECT id FROM categories WHERE code = 'dessert'), '季節のシャーベット', 420, '/images/menu-16-sherbet.png', FALSE, TRUE),
+(17, 1, (SELECT id FROM categories WHERE code = 'tsukemono'), 'きゅうり浅漬け', 350, '/images/menu-17-cucumber-pickles.png', FALSE, TRUE),
+(18, 1, (SELECT id FROM categories WHERE code = 'ippin'), '枝豆', 330, '/images/menu-18-edamame.png', FALSE, TRUE),
+(19, 1, (SELECT id FROM categories WHERE code = 'ippin'), '唐揚げ', 680, '/images/menu-19-karaage.png', FALSE, TRUE),
+(20, 1, (SELECT id FROM categories WHERE code = 'moriawase'), '焼き鳥盛り合わせ', 980, '/images/menu-20-yakitori-platter.png', FALSE, TRUE)
 ON DUPLICATE KEY UPDATE
   category_id = VALUES(category_id),
   name = VALUES(name),
@@ -66,15 +66,22 @@ ON DUPLICATE KEY UPDATE
   price = VALUES(price),
   duration = VALUES(duration);
 
+INSERT IGNORE INTO course_products (course_id, product_id) VALUES
+((SELECT id FROM courses WHERE name = 'ノーマル'), (SELECT id FROM products WHERE store_id = 1 AND name = 'ビール')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = '日本酒')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = 'ビール')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = 'ハイボール')),
+((SELECT id FROM courses WHERE name = 'プレミアム'), (SELECT id FROM products WHERE store_id = 1 AND name = 'レモンサワー'));
+
 -- seat_status: old EMPTY -> 7 (available), old STOPPED -> 8 (out-of-service)
 INSERT INTO dining_tables (store_id, table_number, seat_status) VALUES
 (1, 1, 7),
 (1, 2, 7),
 (1, 3, 7),
 (1, 4, 7),
-(1, 5, 8),
+(1, 5, 7),
 (1, 6, 7),
 (1, 7, 7),
-(1, 8, 8),
+(1, 8, 7),
 (1, 9, 7)
 ON DUPLICATE KEY UPDATE seat_status = VALUES(seat_status);

@@ -62,7 +62,7 @@
   function populateCategorySelect() {
     const select = document.getElementById("new-category");
     if (!select) return;
-    select.innerHTML = "";
+    select.innerHTML = '<option value="" selected disabled>カテゴリーを選択</option>';
     categories.forEach(category => {
       const option = document.createElement("option");
       option.value = category.code;
@@ -82,6 +82,7 @@
     if (!selectedProduct) return;
     document.getElementById("edit-name").textContent = "商品名：" + selectedProduct.name;
     document.getElementById("radio-soldout").checked = false;
+    document.getElementById("radio-available").checked = false;
     document.getElementById("radio-delete").checked = false;
     document.getElementById("price-input").value = "";
     showOverlay("overlay-confirm");
@@ -90,16 +91,17 @@
   window.executeEdit = async function() {
     if (!selectedProduct) return;
     const soldout = document.getElementById("radio-soldout").checked;
+    const available = document.getElementById("radio-available").checked;
     const del = document.getElementById("radio-delete").checked;
     const price = document.getElementById("price-input").value.trim();
 
     if (del) {
       await fetch(`/api/admin/products/${selectedProduct.id}`, { method: "DELETE" });
-    } else if (soldout) {
+    } else if (soldout || available) {
       await json(`/api/admin/products/${selectedProduct.id}/sold-out`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soldOut: true })
+        body: JSON.stringify({ soldOut: soldout })
       });
     } else if (price) {
       await json(`/api/admin/products/${selectedProduct.id}`, {
@@ -115,7 +117,9 @@
     if (del) {
       document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} を削除しました。`;
     } else if (soldout) {
-      document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} の売り切れ状態を更新しました`;
+      document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} を売り切れにしました`;
+    } else if (available) {
+      document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} を販売中に戻しました`;
     } else {
       document.getElementById("done-line1").textContent = `商品名：${selectedProduct.name} を${price}円に更新しました。`;
     }
@@ -130,22 +134,36 @@
     const price = Number(document.getElementById("new-price").value.trim());
     const category = document.getElementById("new-category").value;
     const nomihoudai = document.getElementById("new-nomihoudai")?.value || "なし";
-    if (!name || !price || !category) return;
-    const result = await json("/api/admin/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price, category })
-    });
+    const imagePath = typeof addImageDataUrl === "string" ? addImageDataUrl : "";
+    if (!name || !Number.isFinite(price) || price <= 0 || !category || !imagePath) return;
 
-    // 飲み放題区分で選択されたコースに、追加した商品を対象商品として登録する
-    const courseNames = nomihoudai === "なし" ? [] : nomihoudai.split("、");
-    for (const courseName of courseNames) {
-      const course = courses.find(c => c.name === courseName);
-      if (course) {
-        await json(`/api/admin/courses/${course.id}/products/${result.id}`, { method: "POST" });
+    let result;
+    try {
+      result = await json("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, price, category, imagePath })
+      });
+
+      // 飲み放題区分で選択されたコースに、追加した商品を対象商品として登録する
+      const courseNames = nomihoudai === "なし" ? [] : nomihoudai.split("、");
+      for (const courseName of courseNames) {
+        const course = courses.find(c => c.name === courseName);
+        if (course) {
+          await json(`/api/admin/courses/${course.id}/products/${result.id}`, { method: "POST" });
+        }
       }
+    } catch (error) {
+      window.alert("商品追加に失敗しました。商品名の重複や入力内容を確認してください。");
+      return;
     }
 
+    const courseNames = nomihoudai === "なし" ? [] : nomihoudai.split("、");
+    const doneImg = document.getElementById("add-done-img");
+    if (doneImg) {
+      doneImg.src = imagePath;
+      doneImg.style.display = "block";
+    }
     document.getElementById("add-done-name").textContent = "商品名：" + name;
     document.getElementById("add-done-price").textContent = "商品価格：" + price + "円";
     document.getElementById("add-done-category").textContent = "カテゴリー：" + categories.find(c => c.code === category)?.name;
@@ -153,7 +171,6 @@
     await loadData();
     showOverlay("overlay-add-done");
   };
-
 
   /* ========================================
      コース管理（飲み放題の対象商品管理）

@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 public class ProductApiController {
@@ -49,6 +51,33 @@ public class ProductApiController {
 
 	@PostMapping("/api/admin/products")
 	public Map<String, Object> addProduct(@RequestBody ProductRequest request) {
+		String name = normalizeName(request.name());
+		int price = requirePositivePrice(request.price());
+		long categoryId = resolveCategoryId(request.category());
+		String imagePath = defaultImage(request.imagePath());
+		Long activeProductId = firstLong(
+				"SELECT id FROM products WHERE store_id = ? AND name = ? AND active = TRUE",
+				DEFAULT_STORE_ID, name);
+		if (activeProductId != null) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "商品名が重複しています。");
+		}
+		Long deletedProductId = firstLong(
+				"SELECT id FROM products WHERE store_id = ? AND name = ? AND active = FALSE",
+				DEFAULT_STORE_ID, name);
+		if (deletedProductId != null) {
+			jdbcTemplate.update("""
+					UPDATE products
+					SET category_id = ?,
+					    price = ?,
+					    image_path = ?,
+					    sold_out = FALSE,
+					    active = TRUE
+					WHERE id = ? AND store_id = ?
+					""", categoryId, price, imagePath, deletedProductId, DEFAULT_STORE_ID);
+			jdbcTemplate.update("DELETE FROM course_products WHERE product_id = ?", deletedProductId);
+			return Map.of("ok", true, "id", deletedProductId, "reactivated", true);
+		}
+
 		GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
 		jdbcTemplate.update(connection -> {
 			PreparedStatement ps = connection.prepareStatement("""
@@ -56,13 +85,13 @@ public class ProductApiController {
 					VALUES (?, ?, ?, ?, ?, FALSE, TRUE)
 					""", Statement.RETURN_GENERATED_KEYS);
 			ps.setLong(1, DEFAULT_STORE_ID);
-			ps.setLong(2, resolveCategoryId(request.category()));
-			ps.setString(3, request.name());
-			ps.setInt(4, request.price());
-			ps.setString(5, defaultImage(request.imagePath()));
+			ps.setLong(2, categoryId);
+			ps.setString(3, name);
+			ps.setInt(4, price);
+			ps.setString(5, imagePath);
 			return ps;
 		}, keyHolder);
-		return Map.of("ok", true, "id", keyHolder.getKey().longValue());
+		return Map.of("ok", true, "id", generatedProductId(keyHolder));
 	}
 
 	@PutMapping("/api/admin/products/{id}")
@@ -138,6 +167,41 @@ public class ProductApiController {
 		return ids.get(0);
 	}
 
+	private String normalizeName(String name) {
+		if (name == null || name.trim().isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "商品名を入力してください。");
+		}
+		return name.trim();
+	}
+
+	private int requirePositivePrice(Integer price) {
+		if (price == null || price <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "商品価格を入力してください。");
+		}
+		return price;
+	}
+
+	private Long firstLong(String sql, Object... args) {
+		List<Long> ids = jdbcTemplate.queryForList(sql, Long.class, args);
+		return ids.isEmpty() ? null : ids.get(0);
+	}
+
+	private long generatedProductId(GeneratedKeyHolder keyHolder) {
+		Map<String, Object> keys = keyHolder.getKeys();
+		if (keys != null) {
+			Object id = keys.containsKey("id") ? keys.get("id") : keys.get("ID");
+			if (id instanceof Number number) {
+				return number.longValue();
+			}
+			if (keys.size() == 1) {
+				Object onlyValue = keys.values().iterator().next();
+				if (onlyValue instanceof Number number) {
+					return number.longValue();
+				}
+			}
+		}
+		throw new IllegalStateException("商品IDを取得できませんでした。");
+	}
 
 	public record ProductRequest(String name, String category, Integer price, String imagePath, Boolean soldOut) {
 	}
